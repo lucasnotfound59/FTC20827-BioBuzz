@@ -38,4 +38,28 @@ public final class GamepadConfig {
     public boolean isShootHeld() {
         return gamepad.right_bumper;
     }
+
+    /** Hold to let auto-aim steer the chassis (Field-Centric only). */
+    public boolean isAimHeld() {
+        return gamepad.right_trigger_pressed;
+    }
+
+    /** BACK / SHARE: makes the robot's current facing the field-centric forward. */
+    public boolean isResetHeadingHeld() {
+        return gamepad.back;
+    }
+
+    /** INIT only: X (blue button) selects the BLUE alliance. */
+    public boolean isBlueAllianceSelected() {
+        return gamepad.x;
+    }
+
+    /** INIT only: B (red button) selects the RED alliance. */
+    public boolean isRedAllianceSelected() {
+        return gamepad.b;
+    }
+
+    public void rumble(int durationMs) {
+        gamepad.rumble(durationMs);
+    }
 }

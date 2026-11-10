@@ -1,47 +1,91 @@
 # FTC-20827 BioBuzz TeamCode
 
-Team-owned FTC code for BIOBUZZ. The command architecture uses SolversLib's official command system (`org.solverslib:core:0.3.4`), following its subsystem, command, and `CommandOpMode` lifecycle model.
+Team-owned FTC code for BIOBUZZ. The command architecture uses SolversLib's official command system (`org.solverslib:core:0.3.6`, plus `org.solverslib:pedroPathing:0.3.6` for Pedro Pathing 3 commands in autonomous), following its subsystem, command, and `CommandOpMode` lifecycle model.
+
+Compiling proves the code builds. It does not prove deployment, sensor calibration or robot behavior: every item marked "verify on the robot" below still has to be checked on the real robot.
 
 ## Source layout
 
-- `teleops/`: Driver Station TeleOp entry points. `FieldCentricDrive` extends SolversLib's `CommandOpMode` directly and installs `DriveCommand` as the drivetrain default.
-- `autos/`: autonomous OpModes and autonomous command compositions.
-- `subsystems/`: hardware ownership. `Drive` owns the four drive motors; `Shooter` and `Intake` each own one motor; `OctoQuadSubsystem` provides a validated heading relative to the direction captured at START.
-- `commands/`: `DriveCommand` reads live driver axes. `BaseDriveTeleOp.run()` handles shooter and intake buttons directly through `GamepadConfig`.
+- `teleops/`: `BaseDriveTeleOp` holds the shared hardware, controls and lifecycle; `RobotCentricDrive` and `FieldCentricDrive` are the Driver Station entries.
+- `autos/`: `BaseAuto`, the shared lifecycle and helpers for Pedro autonomous routines. There is no concrete autonomous OpMode yet.
+- `subsystems/`: hardware ownership. `Drive` (four drive motors), `Shooter`, `Intake`, `Gate`, `Localizer` (OctoQuad heading), `AutoAim` (Limelight), `PathFollower` (Pedro follower), plus `GamepadConfig` for the control mapping.
+- `commands/`: `DriveCommand`, the drivetrain default command for both TeleOps.
+- `pedro/`: `Constants`, the Pedro Pathing 3 follower configuration.
+- `utils/`: `Alliance` (field frame, alliance conversion, AprilTag IDs) and `AutoHandoff` (AUTO result for the next TeleOp).
 - `tests/`: Driver Station diagnostic OpModes.
 
-Subsystems encapsulate hardware. Commands declare their subsystem requirements with `addRequirements(...)`, implement the command lifecycle, and use subsystem methods instead of writing hardware directly. SolversLib's `CommandOpMode` runs its scheduler and handles scheduler reset when the OpMode ends.
+## Hardware names
 
-`FieldCentricDrive` is registered as **20827 Headless TeleOp** in the Driver Station. The left stick translates relative to the direction the robot faced at START, and right stick X turns the robot. Hold gamepad 1 LB to cap each normalized wheel output at 0.30; release LB for normal power. No gamepad button changes the fixed forward reference.
+Motors `frontLeft`, `frontRight`, `backLeft`, `backRight`, `shooterLeft`, `shooterRight`, `intake`; servo `gate`; OctoQuad MK2 `octoquad` (type OctoQuadFTC); Limelight 3A `limelight`.
 
-For example, after the robot turns counterclockwise 90 degrees, stick-left commands robot-forward movement, which is still the driver's original left. Stick-forward-left commands robot-forward-right, which is still the driver's original forward-left. These directions remain fixed for the whole run; the program does not track the driver's later movement or turning.
+The drive motor names and directions live in one place, the constants at the top of `Drive`. `pedro/Constants` reads the same constants, so the TeleOps and the Pedro follower always agree. Positive power on every wheel must roll the robot forward.
 
-Keep the robot still during INIT calibration and wait for `RUNNING`, then point its front along the driver's desired forward direction before START. SolversLib **0.3.4 does not call a `preRun()` hook**. This TeleOp captures one fresh valid OctoQuad heading at the beginning of its first active `run()`, before `super.run()` advances the scheduler. Invalid data at that point aborts startup instead of choosing a later direction. OctoQuad MK2 is required, configured as `octoquad`; CRC/status/nonfinite heading failures during driving command zero output.
+## Controls (gamepad 1)
 
-On STOP or a runtime exception, the OpMode explicitly stops the drivetrain, shooter and intake, and lets SolversLib reset its scheduler. Every available motor receives a stop attempt even when cancellation or another stop write fails. Each mechanism command also stops on interruption or input/output failure. Existing OctoQuad pod settings and heading scale are preserved.
+| Input | Action |
+| --- | --- |
+| Left stick | Translate |
+| Right stick X | Turn (scaled by `GamepadConfig.TURN_LIMIT`) |
+| LB (hold) | Intake. The gate opens only while LB is held and the shooter is at speed |
+| LT (hold) | Outtake |
+| RB (hold) | Shooter |
+| RT (hold) | Auto-aim steers the chassis (Field-Centric only) |
+| BACK / SHARE | Make the current facing field-centric forward (Field-Centric only) |
+| X / B during INIT | Select BLUE / RED for auto-aim (Field-Centric only) |
 
-`Drive`, `Shooter` and `Intake` fetch their hardware directly from `HardwareMap` in their constructors. The drive motor names are written at the lookup calls, and the class preserves the current left-reverse/right-forward direction setup. Verify the names and mapping on the robot before operating it.
+## Field-Centric TeleOp
 
-## Shooter and intake controls
+The left stick translates relative to a fixed forward direction, however the robot is turned. After a 90 degree counterclockwise turn, stick-left still moves the robot to the driver's left.
 
-In **20827 Headless TeleOp**, use gamepad 1:
+The forward direction comes from one of three places:
 
-- Hold **A** to run the intake; release A to stop it.
-- Hold **B** to run the shooter; release B to stop it.
-- Hold A and B together to run both. The left/right sticks and LB retain their existing drive behavior.
+1. Straight after an AUTO (within 30 s), from the AUTO's final pose and alliance: stick-forward is away from the drivers. This assumes the robot was not moved between AUTO and the TeleOp's INIT.
+2. Otherwise, the robot's facing at START. Point the front away from the drivers before START.
+3. BACK re-zeroes it to the current facing at any time.
 
-Configure a motor named `shooter` and a motor named `intake`. `Shooter.SHOOT_POWER` and `Intake.INTAKE_POWER` are initial open-loop commands of `1.0`, not tuned or measured performance. Change these constants to adjust power. Each subsystem's `DIRECTION` constant starts at FORWARD; verify the actual collection/firing direction on the current robot. Both use BRAKE and RUN_WITHOUT_ENCODER and initialize with zero power. This version controls the two motors directly; it does not regulate shooter RPM or actuate a separate feeder.
+Keep the robot still during INIT while the OctoQuad calibrates, and wait for `RUNNING`.
 
-The subsystem APIs are `shooter.shoot()`, `intake.intake()`, `setPower(double)`, `stop()` and `getCommandedPower()`. Power is clamped to [-1,1]; nonfinite inputs throw after attempting to stop. `getCommandedPower()` and the TeleOp telemetry report the last successfully written command, not motor speed or a confirmation of ball movement.
+A single bad OctoQuad packet reuses the last good heading for up to 0.1 s (`Localizer.HEADING_HOLD_SECONDS`). If the heading stays unavailable, the sticks become robot-centric instead of stopping the robot, the gamepad rumbles, and telemetry shows `ROBOT-CENTRIC: heading unavailable`. Field-centric resumes when the heading returns.
 
-The drive default command is installed during INIT and executes after START. `BaseDriveTeleOp.run()` reads the shared `GamepadConfig` each cycle: left bumper runs the intake and right bumper runs the shooter. The two buttons work independently and together; releasing either button stops its motor. `end()` stops both mechanisms on STOP.
+### Auto-aim
 
-The current drive names are `frontLeft`, `frontRight`, `backLeft` and `backRight`. Raise the wheels and verify the individual wheel directions, a 90/180-degree turn followed by left/forward-left joystick input, LB slow/release and STOP before floor driving. Software tests and compilation do not prove deployment, sensor calibration or physical robot behavior.
+`AutoAim` owns the Limelight. Each new camera frame that shows AprilTags under one of our HIVE CELLS (RED 30-37, BLUE 38-45) sets a target heading; between frames the OctoQuad heading closes the loop. While RT is held and a target is fresh, auto-aim replaces the right stick's turn and the left stick keeps translating field-centric. Moving the right stick past `AutoAim.MANUAL_OVERRIDE`, releasing RT, or losing the tags for `LOCK_HOLD_SECONDS` returns the turn to the driver.
 
-The project keeps SolversLib `0.3.4` and FTC SDK `12.0.0`. `TeamCode/build.gradle` excludes only SolversLib's transitive `org.firstinspires.ftc` SDK artifacts because its strict 11.1 constraints conflict with the application's explicit SDK 12.0 dependencies. No library version is upgraded by the headless restoration.
+Auto-aim does nothing until an alliance is known: it is taken from the AUTO just run, or selected with X / B during INIT. A robot configuration without `limelight` only disables auto-aim.
+
+Verify on the robot before relying on it, at low `MAX_TURN`:
+
+1. A tag to the right of the crosshair reads positive tx.
+2. The robot turns toward the tag. If it turns away, set `AutoAim.INVERT_TURN` in Panels.
+3. Calibrate `AIM_TX_DEG` (the tx at which shots land) and tune `TURN_KP`, `TURN_KS`, `TOLERANCE_DEG`.
+
+`ALIGNED` is an angle check only. It does not know the range, the flywheel speed or which CELL is tilted up, and it does not gate the shooter.
+
+## Autonomous base
+
+`BaseAuto` is written against the BIOBUZZ Competition Manual TU08. Subclasses pass an `Alliance`, implement `startPose()` and `buildRoutine()`, and write every pose for the BLUE side with `pose(x, y, headingDegrees)`.
+
+Field frame (a team convention, documented in `utils/Alliance`): inches, origin at the audience-side corner next to the RED alliance area, +x toward the BLUE alliance wall, +y away from the audience, heading 0 along +x and counterclockwise-positive. BLUE owns x > 72. RED is the BLUE routine rotated 180 degrees about the field centre, because the field is rotationally symmetric (LOADING ZONES on tiles A5 and F2). Check the frame against a real field before trusting any pose.
+
+What the base does for the rules:
+
+- G304: nothing drives before START; the start pose is re-applied at START in case the robot was nudged. Place the robot on its own side, touching the wall, outside the LOADING ZONE, with 4 POLLEN.
+- G402: a pose within `OWN_SIDE_MARGIN_IN` of the centre line shows a warning on the Driver Station.
+- G403: everything stops `END_GUARD_SECONDS` before the 30 s mark and again when the OpMode ends.
+- LEAVE 3, PARK 5, HIVE TIP 20: `untilSecondsLeft(command, seconds)` interrupts scoring so the final LEAVE / PARK move always gets its time.
+- `shoot(feedSeconds)` spins up, opens the gate and feeds, and stops intake, gate and flywheel even when interrupted.
+
+Before any path is driven, `pedro/Constants` still needs real values: the OctoQuad pod ports, directions and offsets are placeholders, and the Foresight block is Pedro's documentation sample. Pedro's AutoTune produces them, but it needs the Quickstart's `pedro/Tuning.java` and `pedro/procedures` copied into this project first.
+
+## Dependencies
+
+SolversLib `0.3.6`, Pedro Pathing `revhub:3.0.0` and `tuning:1.0.0`, FTC SDK `12.0.0`. `TeamCode/build.gradle` excludes only SolversLib's transitive `org.firstinspires.ftc` SDK artifacts because its strict 11.1 constraints conflict with the application's explicit SDK 12.0 dependencies.
 
 ## Reference
 
 - [SolversLib command system](https://docs.seattlesolvers.com/command-base/command-system)
 - [SolversLib CommandOpMode](https://docs.seattlesolvers.com/command-base/command-system/robot-and-commandopmode)
 - [SolversLib installation](https://docs.seattlesolvers.com/installation)
+- [Pedro Pathing 3 constants](https://pedropathing.com/docs/pathing/tuning/constants) and [OctoQuad localizer](https://pedropathing.com/docs/pathing/tuning/localization/octoquad)
+- [BIOBUZZ game and season materials](https://ftc-resources.firstinspires.org/ftc/game)
+- [Limelight FTC programming guide](https://docs.limelightvision.io/docs/docs-limelight/apis/ftc-programming)
