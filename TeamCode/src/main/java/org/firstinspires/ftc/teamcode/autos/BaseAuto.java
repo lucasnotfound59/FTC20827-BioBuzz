@@ -60,7 +60,7 @@ public abstract class BaseAuto extends CommandOpMode {
     /** AUTO length in seconds (section 10.4); an 8 s transition follows. */
     public static final double AUTO_SECONDS = 30.0;
     // Fraction of Pedro's tuned max path speed. Keep low for first runs; raise after tuning.
-    public static double PATH_SPEED_FRACTION = 0.5;
+    public static double PATH_SPEED_FRACTION = 0.7;
     // A path or turn that has not finished by then is abandoned and the robot holds its pose.
     public static long DEFAULT_PATH_TIMEOUT_MS = 5000;
     // Feed anyway if the flywheel has not reached speed within this time.

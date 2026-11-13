@@ -1,119 +1,111 @@
 package org.firstinspires.ftc.teamcode.teleops;
 
+import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.api.Paths;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.ManualDrive;
+import com.pedropathing.math.Pose;
+import com.pedropathing.paths.interpolator.Interpolator;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.commands.DriveCommand;
-import org.firstinspires.ftc.teamcode.subsystems.Drive;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
-import org.firstinspires.ftc.teamcode.subsystems.Localizer;
+import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AutoHandoff;
 
-/**
- * Field-centric (headless) mecanum drive.
- *
- * <p>Forward reference: straight after an AUTO it is taken from the AUTO's final pose and
- * alliance, so stick-forward is away from the drivers; otherwise it is the robot's facing
- * at START. BACK re-zeroes it to the current facing at any time. If the OctoQuad heading
- * drops out the sticks become robot-centric until it returns.
- */
+/** Field-centric manual drive and B/X shooting-position paths through one Pedro follower. */
+@Configurable
 @TeleOp(name = "Field-Centric")
 public final class FieldCentricDrive extends BaseDriveTeleOp {
-    private Localizer localizer;
+    // Set these in Panels before INIT. Heading is CCW from field +x, in degrees.
+    public static boolean USE_AUTO_HANDOFF = true;
+    public static boolean START_ON_BLUE = false;
+    public static double START_X_IN = 70.75;
+    public static double START_Y_IN = 70.75;
+    public static double START_HEADING_DEG = 0.0;
+
+    // Shooting poses from RedFullAuto, in the RED field frame.
+    private static final Pose SHOOT1 = new Pose(58, 14,
+            Math.toRadians(-90));
+    private static final Pose SHOOT2 = new Pose(57.8, 125.2, Math.toRadians(90));
+
+    private Follower follower;
     private GamepadConfig controls;
-    // Robot heading relative to driver-forward at INIT, from the last AUTO; NaN if none.
-    private double handoffHeadingRadians;
-    private boolean robotCentricFallback;
+    private Alliance alliance;
+    private boolean usingHandoff;
+    private boolean shoot1WasHeld, shoot2WasHeld;
 
     @Override
-    protected DriveCommand createDriveCommand(Drive drive, GamepadConfig controls) {
+    protected void initializeDrive(GamepadConfig controls) {
         this.controls = controls;
-        localizer = new Localizer(hardwareMap);
-        robotCentricFallback = false;
-        handoffHeadingRadians = takeAutoHandoff();
-        return new DriveCommand(
-                drive,
-                controls::getForward,
-                controls::getStrafe,
-                controls::getTurn,
-                localizer,
-                GamepadConfig.DRIVE_DEADBAND,
-                GamepadConfig.DRIVE_LIMIT,
-                GamepadConfig.TURN_LIMIT);
-    }
-
-    /**
-     * Consumes the last AUTO's result. The OctoQuad heading was just zeroed with the robot
-     * still standing where AUTO left it, so that pose gives its heading relative to
-     * driver-forward. Returns NaN when no AUTO ran just before this TeleOp.
-     */
-    private double takeAutoHandoff() {
         AutoHandoff handoff = AutoHandoff.take();
-        return handoff == null ? Double.NaN : handoff.headingFromDriverForward();
-    }
+        usingHandoff = USE_AUTO_HANDOFF && handoff != null;
+        alliance = usingHandoff ? handoff.alliance : (START_ON_BLUE ? Alliance.BLUE : Alliance.RED);
+        Pose startPose = usingHandoff ? handoff.pose
+                : new Pose(START_X_IN, START_Y_IN, Math.toRadians(START_HEADING_DEG));
 
-    /** Sets the forward reference as soon as a heading sample exists; then does nothing. */
-    private void setForwardReference(boolean started) {
-        if (localizer.hasReference()) {
-            return;
-        }
-        if (Double.isFinite(handoffHeadingRadians)) {
-            localizer.resetHeading(handoffHeadingRadians);
-        } else if (started) {
-            localizer.captureStartHeading();
-        }
+        follower = Constants.create(hardwareMap);
+        follower.setPose(startPose);
+        follower.holdEnd.set(false);
     }
 
     @Override
     protected void updateDriveInitialization() {
-        localizer.periodic();
-        setForwardReference(false);
-
-        telemetry.addData("OctoQuad", localizer.getStatus());
-        telemetry.addLine("Keep still; wait for RUNNING before START.");
-        if (Double.isFinite(handoffHeadingRadians)) {
-            telemetry.addLine("Forward = away from the drivers (from AUTO). BACK re-zeroes.");
-        } else {
-            telemetry.addLine("START locks this facing as forward. BACK re-zeroes.");
-        }
+        follower.localizer.update();
+        telemetry.addData("Start pose source", usingHandoff ? "AUTO" : "configured");
+        telemetry.addLine("B: shoot1. X: shoot2. Move a drive stick to cancel.");
+        telemetry.addLine("Stick-forward follows field +x; Auto and TeleOp share the same pose frame.");
     }
 
     @Override
     protected void beforeDriveRun() {
-        if (!localizer.hasReference()) {
-            // Needs a fresh sample before the scheduler's first run (preRun() is not used here).
-            localizer.periodic();
-            setForwardReference(true);
+        double forward = applyDeadband(controls.getForward()) * GamepadConfig.DRIVE_LIMIT;
+        // Pedro uses left-positive strafe and CCW-positive turn.
+        double lateral = -applyDeadband(controls.getStrafe()) * GamepadConfig.DRIVE_LIMIT;
+        double turn = -applyDeadband(controls.getTurn()) * GamepadConfig.TURN_LIMIT;
+        boolean driverMoving = forward != 0 || lateral != 0 || turn != 0;
+        boolean shoot1Held = controls.isDriveToShoot1Held();
+        boolean shoot2Held = controls.isDriveToShoot2Held();
+
+        if (!driverMoving) {
+            if (shoot1Held && !shoot1WasHeld) followTo(SHOOT1);
+            else if (shoot2Held && !shoot2WasHeld) followTo(SHOOT2);
         }
-        if (controls.isResetHeadingHeld()) {
-            localizer.resetHeading(0.0);
+        shoot1WasHeld = shoot1Held;
+        shoot2WasHeld = shoot2Held;
+
+        if (driverMoving || follower.mode() != Follower.Mode.FOLLOW) {
+            follower.manual(ManualDrive.fieldCentric(forward, lateral, turn,
+                    follower.pose().heading()));
         }
+        follower.update();
+    }
+
+    private void followTo(Pose redTarget) {
+        Pose start = follower.pose();
+        Pose target = alliance == Alliance.RED ? redTarget : Alliance.RED.fromBlue(redTarget);
+        follower.follow(Paths.line(start, target)
+                .heading(Interpolator.linear(start.heading(), target.heading())));
+    }
+
+    private double applyDeadband(double input) {
+        double deadband = GamepadConfig.DRIVE_DEADBAND;
+        if (Math.abs(input) <= deadband) return 0;
+        return Math.copySign((Math.abs(input) - deadband) / (1 - deadband), input);
+    }
+
+    @Override
+    protected void stopDrive() {
+        follower.stop();
+        follower.drivetrain.stop();
     }
 
     @Override
     protected void addDriveTelemetry() {
-        boolean fallback = !Double.isFinite(localizer.getHeadingRadians());
-        if (fallback && !robotCentricFallback) {
-            // The driver is not looking at the Driver Station when the mode changes.
-            controls.rumble(600);
-        }
-        robotCentricFallback = fallback;
-
-        if (fallback) {
-            telemetry.addData("Drive", "ROBOT-CENTRIC: heading unavailable");
-        } else {
-            telemetry.addData("Drive", "Field reference");
-        }
-        telemetry.addData("OctoQuad", localizer.getStatus());
-        telemetry.addData("Heading from forward (deg)", Math.toDegrees(localizer.getHeadingRadians()));
-        telemetry.addData("Bad CRC packets", localizer.getBadCrcPackets());
-        // Position counts from this OpMode's INIT, not from the field origin.
-        telemetry.addData("OctoQuad packet valid", localizer.isValid());
-        telemetry.addData("OctoQuad x (in)", localizer.getXInches());
-        telemetry.addData("OctoQuad y (in)", localizer.getYInches());
-        telemetry.addData("OctoQuad heading (deg)", Math.toDegrees(localizer.getRawHeadingRadians()));
-        telemetry.addData("OctoQuad x velocity (in/s)", localizer.getXVelocityInches());
-        telemetry.addData("OctoQuad y velocity (in/s)", localizer.getYVelocityInches());
-        telemetry.addData("OctoQuad rotation (deg/s)",
-                Math.toDegrees(localizer.getHeadingVelocityRadians()));
+        Pose pose = follower.pose();
+        telemetry.addData("Pedro", follower.mode());
+        telemetry.addData("Field x (in)", pose.x());
+        telemetry.addData("Field y (in)", pose.y());
+        telemetry.addData("Field heading (deg)", Math.toDegrees(pose.heading()));
     }
 }

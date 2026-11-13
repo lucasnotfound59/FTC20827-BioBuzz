@@ -87,35 +87,32 @@ public final class Constants {
 //    );
     public static ForesightConfig foresightConfig = new ForesightConfig(
             c -> {
-                // Hand-tuned: AutoTune gave 4.696 / 1.735 here, about 16 times the strafe gains
-                // below, and the robot shook in the Hold Test. 0.30 / 0.11 (equal to strafe)
-                // stopped that but still shook front-to-back while approaching a target, so
-                // forward now sits below strafe. Not yet re-tested on the robot.
-                Controller primaryTranslationalForward = Controller.proportional(0.20);
-                Controller secondaryTranslationalForward = Controller.proportional(0.07);
-                Controller primaryTranslationalLateral = Controller.proportional(0.2862067047360195);
-                Controller secondaryTranslationalLateral = Controller.proportional(0.10574572981596109);
+                // Conservative starting limits: the rear wheels lifted during the line test.
+                // Reduce approach speed and opposing motor power before retesting braking.
+                c.maxVelocityConstraint.set(60.0);     // inches/s
+                c.maxBrakingPower.set(0.15);
+
+                Controller primaryTranslationalForward = Controller.proportional(0.23372204768170443);
+                Controller secondaryTranslationalForward = Controller.proportional(0.08635405145025682);
+                Controller primaryTranslationalLateral = Controller.proportional(0.36505318684010185);
+                Controller secondaryTranslationalLateral = Controller.proportional(0.1348773981366159);
 
                 c.forwardTranslational.set(Controller.piecewise(secondaryTranslationalForward).put(2.5, primaryTranslationalForward));
                 c.strafeTranslational.set(Controller.piecewise(secondaryTranslationalLateral).put(2.5, primaryTranslationalLateral));
 
-                c.coast.set(Controller.proportionalFeedforward(0.0204642745921879));
-                c.brake.set(Controller.proportionalFeedforward(0.017394633403359713));
+                c.coast.set(Controller.proportionalFeedforward(0.01129890090250132));
+                c.brake.set(Controller.proportionalFeedforward(0.009604065767126123));
 
-                c.headingFeedback.set(Controller.proportional(3.5491261388178916));
-                c.headingBrakeCoefficients.set(Vector2D.cartesian(0.05954799785186256, 0.003778975715383811));
+                c.headingFeedback.set(Controller.proportional(3.2878116355549833));
+                c.headingBrakeCoefficients.set(Vector2D.cartesian(0.06719381319638153, 0.003161863919029447));
 
-                // Predicted stopping distance = linear * v + quadratic * v * |v| (forward, strafe).
-                // Linear terms hand-raised about 20 % from AutoTune's 0.2493 / 0.0653 so the
-                // robot starts slowing earlier; it was driving past the target and coming
-                // back. Not yet re-tested on the robot.
-                c.linearBrakeCoefficients.set(Matrix.diag(0.30, 0.078));
-                c.quadraticBrakeCoefficients.set(Matrix.diag(-0.0030620639876104147, 0.0014767345489988737));
+                c.linearBrakeCoefficients.set(Matrix.diag(0.09682320833335036, 0.04511120840579613));
+                c.quadraticBrakeCoefficients.set(Matrix.diag(3.065463350559885E-4, 0.00170514316641828));
 
-                c.maxAchievableForwardVelocity.set(83.4973538997374);
-                c.maxAchievableStrafeVelocity.set(66.749621026265);
-                c.naturalForwardDeceleration.set(38.359098479327784);
-                c.naturalStrafeDeceleration.set(68.29474265059757);
+                c.maxAchievableForwardVelocity.set(82.06769753057878);
+                c.maxAchievableStrafeVelocity.set(69.95459700382189);
+                c.naturalForwardDeceleration.set(55.55486577157712);
+                c.naturalStrafeDeceleration.set(78.47823301503256);
             }
     );
 
@@ -130,19 +127,20 @@ public final class Constants {
                 createDrivetrain(hardwareMap),
                 new Foresight(foresightConfig));
     }
+
     public static OctoQuadConfig localizerConfig = new OctoQuadConfig(c -> {
         c.name.set("octoquad");
         c.xPodPort.set(1);
         c.yPodPort.set(0);
         c.ticksPerUnit.set(505.316944406);
-        c.xPodOffset.set(4.980314960629921);
-        c.yPodOffset.set(-1.062992125984252);
+        c.xPodOffset.set(4.094488188976378);
+        c.yPodOffset.set(-1.988188976377953);
         c.xPodDirection.set(OctoQuad.EncoderDirection.REVERSE);
         c.yPodDirection.set(OctoQuad.EncoderDirection.FORWARD);
         c.globalDistanceUnit.set(DistanceUnit.INCH);
         c.offsetUnits.set(DistanceUnit.INCH);
         c.i2cRecoveryMode.set(OctoQuad.I2cRecoveryMode.MODE_1_PERIPH_RST_ON_FRAME_ERR);
-        c.headingScalar.set(1.0117874673938325);
+        c.headingScalar.set(1.012570131791675);
     });
 
     /** The configured localizer on its own; also what pedro/Tuning hands to the tuners. */

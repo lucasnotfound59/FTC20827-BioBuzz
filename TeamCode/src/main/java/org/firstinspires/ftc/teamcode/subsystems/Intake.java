@@ -5,29 +5,35 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 import org.jetbrains.annotations.NotNull;
 
-/** Owns the intake motor; the TeleOp decides when to collect. */
+/** Owns the intake motor and continuous-rotation splitter servo. */
 @Configurable
 public final class Intake extends SubsystemBase {
     // Shared commanded power, limited to [-1, 1] by setPower(); tune in Panels.
     public static double INTAKE_POWER = 1.0;
+    // Holds collected POLLEN in the intake while driving to a shooting position.
+    public static double INTAKE_SLOW_POWER = 0.25;
     public static double OUTTAKE_POWER = -1.0;
-    // Measure the travel time and direction on the robot before using the splitter.
-    public static double SPLITTER_DEPLOY_POWER = 1.0;
-    public static double SPLITTER_RETRACT_POWER = -1.0;
-    public static double SPLITTER_SECONDS = 0.0;
-    private final CRServo splitter;
+    // CR servo PWM commands: 0.5 is neutral; either side controls direction/speed.
+    public static double SPLITTER_DEPLOY_POSITION = 1;
+    public static double SPLITTER_RETRACT_POSITION = 0;
+    public static double SPLITTER_STOP_POSITION = 0.5;
+    // Measure each direction's travel time on the robot before use.
+    public static double SPLITTER_DEPLOY_SECONDS = 0.8;
+    public static double SPLITTER_RETRACT_SECONDS = 0.825;
+    private final Servo splitter;
     private long splitterDeadline;
     private final DcMotorEx intake;
     private double commandedPower;
 
     public Intake(@NotNull final HardwareMap hMap) {
         intake = hMap.get(DcMotorEx.class, "intake");
-        splitter = hMap.get(CRServo.class, "splitter");
+        splitter = hMap.get(Servo.class, "splitter");
+        splitter.setDirection(Servo.Direction.FORWARD);
         stopSplitter();
         intake.setDirection(DcMotorSimple.Direction.REVERSE);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -38,6 +44,10 @@ public final class Intake extends SubsystemBase {
 
     public void runIntake() {
         setPower(INTAKE_POWER);
+    }
+
+    public void runIntakeSlow() {
+        setPower(INTAKE_SLOW_POWER);
     }
 
     public void runOuttake() {
@@ -54,25 +64,34 @@ public final class Intake extends SubsystemBase {
         setPower(0.0);
     }
 
-    public void deploySplitter() {
-        moveSplitter(SPLITTER_DEPLOY_POWER, SPLITTER_SECONDS);
+    public boolean deploySplitter() {
+        return setSplitterPosition(SPLITTER_DEPLOY_POSITION, SPLITTER_DEPLOY_SECONDS);
     }
 
-    public void retractSplitter() {
-        moveSplitter(SPLITTER_RETRACT_POWER, SPLITTER_SECONDS);
+    public boolean retractSplitter() {
+        return setSplitterPosition(SPLITTER_RETRACT_POSITION, SPLITTER_RETRACT_SECONDS);
     }
 
-    private void moveSplitter(double power, double seconds) {
-        if (!Double.isFinite(power) || !Double.isFinite(seconds) || seconds <= 0) {
+    /** Returns whether a timed movement was started; active movements cannot be replaced. */
+    private boolean setSplitterPosition(double position, double seconds) {
+        if (isSplitterMoving()) return false;
+        if (!Double.isFinite(position) || !Double.isFinite(seconds) || seconds <= 0) {
             stopSplitter();
-            return;
+            return false;
         }
+        splitter.setPosition(Math.max(0.0, Math.min(1.0, position)));
         splitterDeadline = System.nanoTime() + (long) (seconds * 1e9);
-        splitter.setPower(Math.max(-1.0, Math.min(1.0, power)));
+        return true;
+    }
+
+    /** Timer state only, not measured mechanism motion. */
+    public boolean isSplitterMoving() {
+        return splitterDeadline != 0;
     }
 
     public void stopSplitter() {
-        splitter.setPower(0);
+        double neutral = Double.isFinite(SPLITTER_STOP_POSITION) ? SPLITTER_STOP_POSITION : 0.5;
+        splitter.setPosition(Math.max(0.0, Math.min(1.0, neutral)));
         splitterDeadline = 0;
     }
 

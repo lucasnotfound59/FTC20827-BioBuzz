@@ -1,54 +1,17 @@
 {
   "version": "2.0.0",
-  "timestamp": "2026-11-12T14:47:26.099Z",
+  "timestamp": "2026-11-13T12:20:00.658Z",
   "startPoint": {
-    "x": 57.67597307477678,
-    "y": 6.943703787667412,
+    "x": 28.456471034458705,
+    "y": 133.92581612723214,
     "locked": false,
     "headingDeg": 90
   },
   "lines": [
     {
-      "id": "line-mwdf741d-gzec02",
-      "color": "#b07aa1",
-      "name": "StartToShoot1",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 57.67473929268973,
-        "y": 15.784066336495535
-      },
-      "controlPoints": [],
-      "heading": {
-        "type": "constant",
-        "reverse": true,
-        "degrees": -90,
-        "startDeg": 90,
-        "endDeg": 90,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 1,
-              "interpolationType": "linear",
-              "reversed": false,
-              "parameters": {
-                "startDeg": 0,
-                "endDeg": 0
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mwc5dd28-o9ymlq",
+      "id": "line-mwewshbb-u1mpty",
       "color": "#e15759",
-      "name": "Shoot1ToPollenPrep1",
+      "name": "Start2ToShoot2",
       "locked": false,
       "waitBeforeMs": 0,
       "waitAfterMs": 0,
@@ -56,101 +19,19 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 27.75,
-        "y": 46.75
-      },
-      "controlPoints": [],
-      "heading": {
-        "type": "linear",
-        "reverse": true,
-        "degrees": 0,
-        "startDeg": -90,
-        "endDeg": 180,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 0.7092633928571429,
-              "interpolationType": "tangential",
-              "reversed": false,
-              "continueFromPrevious": false
-            },
-            {
-              "startProgress": 0.7092633928571429,
-              "endProgress": 1,
-              "interpolationType": "linear",
-              "reversed": false,
-              "continueFromPrevious": true,
-              "parameters": {
-                "startDeg": 0,
-                "endDeg": 180
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mwc5ef3g-jwefv1",
-      "color": "#4e79a7",
-      "name": "PollenPrep1ToPollen1",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 11.75,
-        "y": 46.75
-      },
-      "controlPoints": [],
-      "heading": {
-        "type": "linear",
-        "reverse": true,
-        "degrees": 0,
-        "startDeg": 180,
-        "endDeg": 180,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 1,
-              "interpolationType": "linear",
-              "reversed": false,
-              "parameters": {
-                "startDeg": 0,
-                "endDeg": 0
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mwc5gf5t-rjgwfq",
-      "color": "#59a14f",
-      "name": "Pollen1ToShoot3",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 37.09893580845424,
-        "y": 112.11055864606584
+        "x": 57.802152856218854,
+        "y": 125.94446045587532
       },
       "controlPoints": [
         {
-          "x": 23.662433237455975,
-          "y": 47.45808685722945
+          "x": 26.7085462999709,
+          "y": 123.37946316254681
         }
       ],
       "heading": {
-        "type": "piecewise",
+        "type": "constant",
         "reverse": true,
-        "degrees": 0,
+        "degrees": 90,
         "startDeg": 0,
         "endDeg": 0,
         "piecewiseHeading": {
@@ -160,10 +41,125 @@
               "endProgress": 1,
               "interpolationType": "linear",
               "reversed": false,
-              "continueFromPrevious": false,
               "parameters": {
-                "startDeg": 180,
-                "endDeg": 135
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-mwewuxng-cam8hc",
+      "color": "#f28e2b",
+      "name": "Shoot2ToFlowerPrep2",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 46.710343960638475,
+        "y": 121.41910057283806
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "constant",
+        "reverse": true,
+        "degrees": 90,
+        "startDeg": 0,
+        "endDeg": 0,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-mweww6c8-nezzyt",
+      "color": "#4e79a7",
+      "name": "FlowerPrep2ToFlower2",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 46.64218002424494,
+        "y": 130.26863226246996
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "constant",
+        "reverse": true,
+        "degrees": 90,
+        "startDeg": 0,
+        "endDeg": 0,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-mwewy93y-w8pspc",
+      "color": "#f28e2b",
+      "name": "Flower2ToShoot2",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 57.86639356726204,
+        "y": 125.64590566964523
+      },
+      "controlPoints": [
+        {
+          "x": 45.07796697234213,
+          "y": 114.54402541039595
+        }
+      ],
+      "heading": {
+        "type": "constant",
+        "reverse": true,
+        "degrees": 90,
+        "startDeg": 0,
+        "endDeg": 0,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
               }
             }
           ]
@@ -173,7 +169,7 @@
     {
       "id": "line-mwc5sacq-ot0429",
       "color": "#f28e2b",
-      "name": "Shoot3ToStop",
+      "name": "Shoot2ToStop2",
       "locked": false,
       "waitBeforeMs": 0,
       "waitAfterMs": 0,
@@ -181,40 +177,35 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 9.43345642089844,
-        "y": 96.21348135811941
+        "x": 10.04541233607701,
+        "y": 118.2698037283761
       },
-      "controlPoints": [
-        {
-          "x": 32.297659344147476,
-          "y": 94.67932993357701
-        }
-      ],
+      "controlPoints": [],
       "heading": {
         "type": "piecewise",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 210,
+        "startDeg": 0,
         "endDeg": 90,
         "piecewiseHeading": {
           "segments": [
             {
               "startProgress": 0,
-              "endProgress": 0.25932173295454547,
+              "endProgress": 0.5,
               "interpolationType": "linear",
               "reversed": false,
               "continueFromPrevious": false,
               "parameters": {
-                "startDeg": 135,
+                "startDeg": 90,
                 "endDeg": 0
               }
             },
             {
-              "startProgress": 0.25932173295454547,
+              "startProgress": 0.5,
               "endProgress": 1,
               "interpolationType": "constant",
               "reversed": false,
-              "continueFromPrevious": false,
+              "continueFromPrevious": true,
               "parameters": {
                 "degrees": 0
               }
@@ -389,19 +380,19 @@
   "sequence": [
     {
       "kind": "path",
-      "lineId": "line-mwdf741d-gzec02"
+      "lineId": "line-mwewshbb-u1mpty"
     },
     {
       "kind": "path",
-      "lineId": "line-mwc5dd28-o9ymlq"
+      "lineId": "line-mwewuxng-cam8hc"
     },
     {
       "kind": "path",
-      "lineId": "line-mwc5ef3g-jwefv1"
+      "lineId": "line-mweww6c8-nezzyt"
     },
     {
       "kind": "path",
-      "lineId": "line-mwc5gf5t-rjgwfq"
+      "lineId": "line-mwewy93y-w8pspc"
     },
     {
       "kind": "path",

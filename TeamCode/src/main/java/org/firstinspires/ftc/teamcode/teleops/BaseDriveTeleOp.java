@@ -5,8 +5,6 @@ import com.bylazar.telemetry.PanelsTelemetry;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
 import com.seattlesolvers.solverslib.command.CommandScheduler;
 
-import org.firstinspires.ftc.teamcode.commands.DriveCommand;
-import org.firstinspires.ftc.teamcode.subsystems.Drive;
 import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Gate;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -15,7 +13,6 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 /** Shared hardware, controls, and lifecycle for drive TeleOps. */
 public abstract class BaseDriveTeleOp extends CommandOpMode {
 
-    private Drive drive;
     private Shooter shooter;
     private Intake intake;
     private Gate gate;
@@ -29,15 +26,14 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         // leave its subsystems registered; start from a clean scheduler.
         reset();
         telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
-        drive = new Drive(hardwareMap);
         shooter = new Shooter(hardwareMap);
         intake = new Intake(hardwareMap);
         gate = new Gate(hardwareMap);
         controls = new GamepadConfig(gamepad1);
-        drive.setDefaultCommand(createDriveCommand(drive, controls));
+        initializeDrive(controls);
     }
 
-    protected abstract DriveCommand createDriveCommand(Drive drive, GamepadConfig controls);
+    protected abstract void initializeDrive(GamepadConfig controls);
 
     protected double getShooterVelocity() {
         return Shooter.SHOOT_VEL;
@@ -63,10 +59,9 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         super.run();
 
         boolean splitterHeld = controls.isSplitterHeld();
-        if (splitterHeld && !splitterButtonWasHeld) {
-            splitterDeployed = !splitterDeployed;
-            if (splitterDeployed) intake.deploySplitter();
-            else intake.retractSplitter();
+        if (splitterHeld && !splitterButtonWasHeld && !intake.isSplitterMoving()) {
+            boolean started = splitterDeployed ? intake.retractSplitter() : intake.deploySplitter();
+            if (started) splitterDeployed = !splitterDeployed;
         }
         splitterButtonWasHeld = splitterHeld;
 
@@ -84,7 +79,7 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
             intake.stop();
         }
 
-        if (controls.isIntakeHeld() && shooter.isReadyToShoot()) {
+        if (controls.isIntakeHeld() && shooter.canOpenGate()) {
             gate.open();
         } else {
             gate.close();
@@ -99,7 +94,8 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         telemetry.addData("Shooter Encoder Mismatch", shooter.isEncoderMismatch());
         telemetry.addData("Intake Power Command", intake.getCommandedPower());
         telemetry.addData("Intake Power Actual", intake.getPow());
-        telemetry.addData("Splitter target", splitterDeployed ? "deployed" : "retracted");
+        telemetry.addData("Splitter rotation command", splitterDeployed ? "deploy" : "retract / initially stopped");
+        telemetry.addData("Splitter timer active", intake.isSplitterMoving());
         telemetry.addData("Gate Position Command", gate.getPosition());
         telemetry.update();
     }
@@ -107,20 +103,17 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
     protected void beforeDriveRun() {
     }
 
-    /** Called on STOP after the shared mechanisms are stopped; release extra hardware here. */
-    protected void stopDriveExtras() {
-    }
+    protected abstract void stopDrive();
 
     protected abstract void addDriveTelemetry();
 
     @Override
     public final void end() {
         CommandScheduler.getInstance().cancelAll();
-        drive.stop();
+        stopDrive();
         shooter.stop();
         intake.stop();
         intake.stopSplitter();
         gate.close();
-        stopDriveExtras();
     }
 }

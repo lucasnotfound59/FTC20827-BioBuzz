@@ -9,9 +9,9 @@ public final class GamepadConfig {
     public static final double DRIVE_DEADBAND = 0.05;
     // Translation input multiplier for the left stick: 1.0 uses full power. The chassis is
     // light, so full power is hard to control. 0.7 is a starting value, not tuned.
-    public static final double DRIVE_LIMIT = 0.7;
+    public static final double DRIVE_LIMIT = 1.0;
     // Turn input multiplier: 0.0 disables turning, 1.0 uses full turn power.
-    public static final double TURN_LIMIT = 0.6;
+    public static final double TURN_LIMIT = 0.7;
     private final Gamepad gamepad;
 
     public GamepadConfig(@NotNull final Gamepad gamepad) {
@@ -54,6 +54,16 @@ public final class GamepadConfig {
     /** BACK / SHARE: makes the robot's current facing the field-centric forward. */
     public boolean isResetHeadingHeld() {
         return gamepad.back;
+    }
+
+    /** B: drive to the first shooting position (Field-Centric only). */
+    public boolean isDriveToShoot1Held() {
+        return gamepad.b;
+    }
+
+    /** X: drive to the second shooting position (Field-Centric only). */
+    public boolean isDriveToShoot2Held() {
+        return gamepad.x;
     }
 
     /** INIT only: X (blue button) selects the BLUE alliance. */

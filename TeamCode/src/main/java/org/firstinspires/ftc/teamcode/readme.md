@@ -16,9 +16,9 @@ Compiling proves the code builds. It does not prove deployment, sensor calibrati
 
 ## Hardware names
 
-Motors `frontLeft`, `frontRight`, `backLeft`, `backRight`, `shooterLeft`, `shooterRight`, `intake`; servo `gate`; continuous-rotation servo `splitter`; OctoQuad MK2 `octoquad` (type OctoQuadFTC).
+Motors `frontLeft`, `frontRight`, `backLeft`, `backRight`, `shooterLeft`, `shooterRight`, `intake`; positional servo `gate`; continuous-rotation servo `splitter`; OctoQuad MK2 `octoquad` (type OctoQuadFTC).
 
-The splitter starts assumed retracted. A toggles deploy/retract. In Panels, tune the two splitter powers and shared travel time in `Intake`; the time defaults to zero, so it will not move until calibrated. Verify direction and travel with the string slack. Timing is open-loop, so the displayed target does not confirm actual position; start each OpMode with the splitter retracted.
+Configure `splitter` as a Servo in Robot Configuration, with the physical servo in continuous-rotation mode. `Servo.setPosition()` supplies rotation commands, not angles: deploy defaults to 0.75, retract to 0.25, and neutral to 0.5 (direction is FORWARD). Calibrate `Intake.SPLITTER_DEPLOY_POSITION`, `SPLITTER_RETRACT_POSITION`, `SPLITTER_STOP_POSITION`, and the separate `SPLITTER_DEPLOY_SECONDS` / `SPLITTER_RETRACT_SECONDS` travel times in Panels. Both times default to zero, disabling movement until calibrated. Initialization sends neutral. Each accepted A press switches deploy/retract direction and starts its timer; expiry sends neutral without blocking driving. Presses during movement are discarded, requiring a release and a fresh press afterward. Invalid or disabled movements do not toggle the target. OpMode STOP also sends neutral. FLOWER collection uses the deploy timer and sends neutral when finished or interrupted.
 
 The drive motor names and directions live in one place, the constants at the top of `Drive`. `pedro/Constants` reads the same constants, so the TeleOps and the Pedro follower always agree. Positive power on every wheel must roll the robot forward. In the TeleOps, wheel commands use normalized motor power without drive motor encoders. The Pedro follower also sends power directly.
 
@@ -31,21 +31,16 @@ The drive motor names and directions live in one place, the constants at the top
 | LB (hold) | Intake. The gate opens only while LB is held and the shooter is at speed |
 | LT (hold) | Outtake |
 | RB (hold) | Shooter |
-| BACK / SHARE | Make the current facing field-centric forward (Field-Centric only) |
+| B (press) | Pedro drives to shoot1 (Field-Centric only) |
+| X (press) | Pedro drives to shoot2 (Field-Centric only) |
 
 ## Field-Centric TeleOp
 
-The left stick translates relative to a fixed forward direction, however the robot is turned. After a 90 degree counterclockwise turn, stick-left still moves the robot to the driver's left.
+Manual driving and paths use the same field pose as AUTO: inches, with heading in radians and counterclockwise-positive. Stick-forward follows field +x; stick-left follows field +y. No alliance or driver-forward offset is applied to manual controls, and BACK does not re-zero the field frame.
 
-The forward direction comes from one of three places:
+A recent AUTO handoff supplies the starting pose and alliance. Otherwise, set `START_X_IN`, `START_Y_IN`, `START_HEADING_DEG`, and `START_ON_BLUE` before INIT. Keep the robot still during INIT while Pedro initializes the OctoQuad.
 
-1. Straight after an AUTO (within 30 s), from the AUTO's final pose and alliance: stick-forward is away from the drivers. This assumes the robot was not moved between AUTO and the TeleOp's INIT.
-2. Otherwise, the robot's facing at START. Point the front away from the drivers before START.
-3. BACK re-zeroes it to the current facing at any time.
-
-Keep the robot still during INIT while the OctoQuad calibrates, and wait for `RUNNING`.
-
-A single bad OctoQuad packet reuses the last good heading for up to 0.1 s (`Localizer.HEADING_HOLD_SECONDS`). If the heading stays unavailable, the sticks become robot-centric instead of stopping the robot, the gamepad rumbles, and telemetry shows `ROBOT-CENTRIC: heading unavailable`. Field-centric resumes when the heading returns.
+Press B for shoot1 or X for shoot2. Moving a drive stick cancels the path. One Pedro follower handles manual drive, path following, and localization; the standalone `Localizer` subsystem is not constructed in this TeleOp.
 
 ## Autonomous base
 
