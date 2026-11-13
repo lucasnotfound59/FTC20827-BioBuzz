@@ -2,35 +2,19 @@ package org.firstinspires.ftc.teamcode.teleops;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.commands.DriveCommand;
-import org.firstinspires.ftc.teamcode.subsystems.Drive;
-import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
-
-/** Mecanum drive with translation relative to the robot's current facing. */
+/**
+ * Robot-centric manual drive: stick-forward moves the way the robot faces. Pose, B/X paths,
+ * AUTO handoff and D-pad reset come from {@link PedroDriveTeleOp}, same as Field-Centric.
+ */
 @TeleOp(name = "Robot-Centric")
-public final class RobotCentricDrive extends BaseDriveTeleOp {
-    private Drive drive;
-
+public final class RobotCentricDrive extends PedroDriveTeleOp {
     @Override
-    protected void initializeDrive(GamepadConfig controls) {
-        drive = new Drive(hardwareMap);
-        drive.setDefaultCommand(new DriveCommand(
-                drive,
-                controls::getForward,
-                controls::getStrafe,
-                controls::getTurn,
-                GamepadConfig.DRIVE_DEADBAND,
-                GamepadConfig.DRIVE_LIMIT,
-                GamepadConfig.TURN_LIMIT));
+    protected void driveManually(double forward, double lateral, double turn) {
+        follower.manual(forward, lateral, turn);
     }
 
     @Override
-    protected void stopDrive() {
-        drive.stop();
-    }
-
-    @Override
-    protected void addDriveTelemetry() {
-        telemetry.addData("Drive", "Robot reference");
+    protected String stickFrameHint() {
+        return "Stick-forward follows the robot's facing; the pose still uses the AUTO field frame.";
     }
 }

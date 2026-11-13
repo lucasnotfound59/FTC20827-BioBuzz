@@ -6,10 +6,10 @@ Compiling proves the code builds. It does not prove deployment, sensor calibrati
 
 ## Source layout
 
-- `teleops/`: `BaseDriveTeleOp` holds the shared hardware, controls and lifecycle; `RobotCentricDrive` and `FieldCentricDrive` are the Driver Station entries.
+- `teleops/`: `BaseDriveTeleOp` holds the shared hardware, controls and lifecycle; `PedroDriveTeleOp` adds the shared Pedro follower, B/X paths, AUTO handoff and odometry reset; `RobotCentricDrive` and `FieldCentricDrive` are the Driver Station entries.
 - `autos/`: `BaseAuto`, the shared lifecycle and helpers for Pedro autonomous routines, and `RedMainAuto`, the RED autonomous.
 - `subsystems/`: hardware ownership. `Drive` (four drive motors), `Shooter`, `Intake`, `Gate`, `Localizer` (OctoQuad heading), `PathFollower` (Pedro follower), plus `GamepadConfig` for the control mapping.
-- `commands/`: `DriveCommand`, the drivetrain default command for both TeleOps.
+- `commands/`: `DriveCommand`, a plain drivetrain default command (no TeleOp uses it now; both drive through Pedro).
 - `pedro/`: `Constants`, the Pedro Pathing 3 follower configuration; `Tuning`, which registers Pedro's AutoTune procedures; `procedures/`, unmodified copies of the four Quickstart procedures this robot needs.
 - `utils/`: `Alliance` (field frame, alliance conversion, AprilTag IDs) and `AutoHandoff` (AUTO result for the next TeleOp).
 - `tests/`: Driver Station diagnostic OpModes.
@@ -22,23 +22,42 @@ Configure `splitter` as a Servo in Robot Configuration, with the physical servo 
 
 The drive motor names and directions live in one place, the constants at the top of `Drive`. `pedro/Constants` reads the same constants, so the TeleOps and the Pedro follower always agree. Positive power on every wheel must roll the robot forward. In the TeleOps, wheel commands use normalized motor power without drive motor encoders. The Pedro follower also sends power directly.
 
-## Controls (gamepad 1)
+## Controls
+
+Gamepad 1 (driver):
 
 | Input | Action |
 | --- | --- |
 | Left stick | Translate (scaled by `GamepadConfig.DRIVE_LIMIT`) |
 | Right stick X | Turn (scaled by `GamepadConfig.TURN_LIMIT`) |
-| LB (hold) | Intake. The gate opens only while LB is held and the shooter is at speed |
+| LB (hold) | Intake |
 | LT (hold) | Outtake |
-| RB (hold) | Shooter |
-| B (press) | Pedro drives to shoot1 (Field-Centric only) |
-| X (press) | Pedro drives to shoot2 (Field-Centric only) |
+| RT (hold) | Fire, same as gamepad 2 |
+| A (press) | Splitter down / up |
+| B (press) | Pedro drives to shoot1 |
+| X (press) | Pedro drives to shoot2 |
+| D-pad down (press) | Reset odometry to the alliance's reset pose |
 
-## Field-Centric TeleOp
+Gamepad 2 (operator):
 
-Manual driving and paths use the same field pose as AUTO: inches, with heading in radians and counterclockwise-positive. Stick-forward follows field +x; stick-left follows field +y. No alliance or driver-forward offset is applied to manual controls, and BACK does not re-zero the field frame.
+| Input | Action |
+| --- | --- |
+| LB (hold) | Intake, same as gamepad 1 |
+| LT (hold) | Outtake, same as gamepad 1 |
+| RB (hold) | Shooter spin-up |
+| RT (hold) | Fire: runs the intake at full power, then opens the gate once the intake has spun up and the shooter is at speed |
 
-A recent AUTO handoff supplies the starting pose and alliance. Otherwise, set `START_X_IN`, `START_Y_IN`, `START_HEADING_DEG`, and `START_ON_BLUE` before INIT. Keep the robot still during INIT while Pedro initializes the OctoQuad.
+Intake, outtake and fire work from either gamepad; if one holds intake and the other outtake, intake wins. To shoot: gamepad 2 holds RB to spin up and either gamepad holds RT to fire. Fire runs the intake at full power at once (overriding intake/outtake), and opens the gate only after `Intake.FIRE_SPINUP_SECONDS` (the intake has no encoder, so this time stands in for reaching full speed) and while the shooter is at speed.
+
+## Field-Centric and Robot-Centric TeleOps
+
+Both run on `PedroDriveTeleOp`: one Pedro follower for manual drive, the B/X paths and the OctoQuad odometry, so the pose, the B/X shooting points, the AUTO handoff and the reset work the same in both, and their settings live in Panels under `PedroDriveTeleOp`. Field-Centric drives relative to the field (below); Robot-Centric drives relative to the robot's facing.
+
+Manual driving and paths use the same field pose as AUTO: inches, with heading in radians and counterclockwise-positive. Stick-forward follows field +x; stick-left follows field +y. No alliance or driver-forward offset is applied to manual controls.
+
+Handoff: when an AUTO ended less than 30 s ago, INIT starts from the odometry pose where that AUTO ended, with its alliance (`USE_AUTO_HANDOFF`). The Driver Station shows that pose during INIT. Re-INITing the TeleOp picks it up again. Otherwise, set `START_X_IN`, `START_Y_IN`, `START_HEADING_DEG`, and `START_ON_BLUE` before INIT. Keep the robot still during INIT while Pedro initializes the OctoQuad.
+
+Reset: gamepad 1 D-pad down overwrites the odometry pose with `RED_RESET_X_IN` / `RED_RESET_Y_IN` / `RED_RESET_HEADING_DEG` or the `BLUE_RESET_*` values, by the current alliance, cancels a running B/X path, and rumbles gamepad 1. The reset values are placeholders (0) until measured.
 
 Press B for shoot1 or X for shoot2. Moving a drive stick cancels the path. One Pedro follower handles manual drive, path following, and localization; the standalone `Localizer` subsystem is not constructed in this TeleOp.
 
@@ -46,7 +65,7 @@ Press B for shoot1 or X for shoot2. Moving a drive stick cancels the path. One P
 
 `BaseAuto` is written against the BIOBUZZ Competition Manual TU08. Subclasses pass an `Alliance`, implement `startPose()` and `buildRoutine()`, and write every pose for the BLUE side with `pose(x, y, headingDegrees)`.
 
-Field frame (a team convention, documented in `utils/Alliance`): inches, origin at the audience-side corner next to the RED alliance area, +x toward the BLUE alliance wall, +y away from the audience, heading 0 along +x and counterclockwise-positive. BLUE owns x > 72. RED is the BLUE routine rotated 180 degrees about the field centre, because the field is rotationally symmetric (LOADING ZONES on tiles A5 and F2). Check the frame against a real field before trusting any pose.
+Field frame (a team convention, documented in `utils/Alliance`): inches, origin at the audience-side corner next to the RED alliance area, +x toward the BLUE alliance wall, +y away from the audience, heading 0 along +x and counterclockwise-positive. BLUE owns x > 70.75 (Pedro's field is 141.5 in square, `Alliance.FIELD_SIZE`). RED is the BLUE routine rotated 180 degrees about the field centre, because the field is rotationally symmetric (LOADING ZONES on tiles A5 and F2). Check the frame against a real field before trusting any pose.
 
 What the base does for the rules:
 
@@ -54,7 +73,7 @@ What the base does for the rules:
 - G402: a pose within `OWN_SIDE_MARGIN_IN` of the centre line shows a warning on the Driver Station.
 - G403: everything stops `END_GUARD_SECONDS` before the 30 s mark and again when the OpMode ends.
 - LEAVE 3, PARK 5, HIVE TIP 20: `untilSecondsLeft(command, seconds)` interrupts scoring so the final LEAVE / PARK move always gets its time.
-- `shoot(feedSeconds)` spins up, opens the gate and feeds, and stops intake, gate and flywheel even when interrupted.
+- `shoot(feedSeconds)` works like the TeleOp fire button: it spins up the flywheel and runs the intake at full power with the gate closed, opens the gate once the intake has had `Intake.FIRE_SPINUP_SECONDS` and the flywheel is at speed, feeds, and stops intake, gate and flywheel even when interrupted.
 
 Before any path is driven, `pedro/Constants` still needs real values: the OctoQuad pod ports, directions and offsets are placeholders, and the Foresight block is Pedro's documentation sample. See the next section.
 

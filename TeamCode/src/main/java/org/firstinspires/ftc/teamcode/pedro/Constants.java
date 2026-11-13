@@ -89,8 +89,8 @@ public final class Constants {
             c -> {
                 // Conservative starting limits: the rear wheels lifted during the line test.
                 // Reduce approach speed and opposing motor power before retesting braking.
-                c.maxVelocityConstraint.set(60.0);     // inches/s
-                c.maxBrakingPower.set(0.15);
+                c.maxVelocityConstraint.set(70.0);     // inches/s
+                c.maxBrakingPower.set(0.1);
 
                 Controller primaryTranslationalForward = Controller.proportional(0.23372204768170443);
                 Controller secondaryTranslationalForward = Controller.proportional(0.08635405145025682);

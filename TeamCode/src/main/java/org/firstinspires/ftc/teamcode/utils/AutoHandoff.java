@@ -3,8 +3,11 @@ package org.firstinspires.ftc.teamcode.utils;
 import com.pedropathing.math.Pose;
 
 /**
- * What the last AUTO left behind, for the TeleOp that follows it in the same match. Static
- * because the two OpModes share nothing else; it does not survive a Robot Controller restart.
+ * What the last AUTO left behind, for the TeleOp that follows it in the same match: the
+ * odometry (OctoQuad) pose where AUTO ended and the alliance. Static because the two OpModes
+ * share nothing else; it does not survive a Robot Controller restart.
+ *
+ * <p>Reading it does not erase it, so re-INITing the TeleOp within MAX_AGE_MS still picks it up.
  */
 public final class AutoHandoff {
     // AUTO to TELEOP is an 8 s transition; anything much older belongs to another run.
@@ -27,14 +30,17 @@ public final class AutoHandoff {
         recordedMs = System.currentTimeMillis();
     }
 
-    /** Returns the last AUTO's result once, or null if there is none or it is stale. */
-    public static synchronized AutoHandoff take() {
-        AutoHandoff handoff = last;
-        last = null;
-        if (handoff == null || System.currentTimeMillis() - recordedMs > MAX_AGE_MS) {
+    /** Returns the last AUTO's result, or null if there is none or it is stale. */
+    public static synchronized AutoHandoff latest() {
+        if (last == null || System.currentTimeMillis() - recordedMs > MAX_AGE_MS) {
             return null;
         }
-        return handoff;
+        return last;
+    }
+
+    /** Seconds since the last AUTO recorded its result. */
+    public static synchronized double secondsSinceRecorded() {
+        return (System.currentTimeMillis() - recordedMs) / 1000.0;
     }
 
     /** Robot heading at the end of AUTO relative to the direction the drivers face, radians. */

@@ -13,6 +13,7 @@ import com.seattlesolvers.solverslib.command.Command;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
 import com.seattlesolvers.solverslib.command.CommandScheduler;
 import com.seattlesolvers.solverslib.command.InstantCommand;
+import com.seattlesolvers.solverslib.command.ParallelCommandGroup;
 import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
 import com.seattlesolvers.solverslib.command.WaitCommand;
 import com.seattlesolvers.solverslib.command.WaitUntilCommand;
@@ -70,6 +71,11 @@ public abstract class BaseAuto extends CommandOpMode {
     // Warn about poses whose robot centre is closer than this to the centre line (inches);
     // half the robot's size keeps the whole robot on our side.
     public static double OWN_SIDE_MARGIN_IN = 9.0;
+    // settleAt(): the robot counts as arrived once it is this close to the target pose.
+    public static double SETTLE_POSITION_TOLERANCE_IN = 1.0;
+    public static double SETTLE_HEADING_TOLERANCE_DEG = 3.0;
+    // settleAt() gives up waiting after this long and lets the routine carry on.
+    public static long SETTLE_TIMEOUT_MS = 1500;
 
     protected final Alliance alliance;
     protected PathFollower follower;
@@ -134,6 +140,8 @@ public abstract class BaseAuto extends CommandOpMode {
         // Discard whatever the odometry picked up while the robot was being placed.
         follower.setPose(startFieldPose);
         autoTimer.reset();
+        // The intake runs the whole AUTO; only the end guard / OpMode end stops it.
+        intake.runIntake();
         schedule(routine);
     }
 
@@ -208,7 +216,7 @@ public abstract class BaseAuto extends CommandOpMode {
 
     /**
      * BLUE-side pose in inches and degrees, converted to the selected alliance. BLUE owns
-     * x &gt; 72; a pose closer than OWN_SIDE_MARGIN_IN to the centre line is still returned
+     * x &gt; 70.75; a pose closer than OWN_SIDE_MARGIN_IN to the centre line is still returned
      * but reported as a G402 warning. The HIVE structure also stands on the centre line.
      */
     protected final Pose pose(double x, double y, double headingDegrees) {
@@ -228,6 +236,27 @@ public abstract class BaseAuto extends CommandOpMode {
                     x, y, OWN_SIDE_MARGIN_IN));
         }
         return new Pose(x, y, Math.toRadians(headingDegrees));
+    }
+
+    /**
+     * A RED-side pose from a {@link Points} entry, with the same own-side warning. Reads the
+     * point's current (possibly Panels-tuned) values, so call it while building the routine.
+     */
+    protected final Pose redPose(Points.Point p) {
+        return redPose(p.x, p.y, p.headingDeg);
+    }
+
+    /**
+     * A BLUE-side pose from a {@link Points} entry, used as-is in the field frame (no alliance
+     * conversion), with the matching own-side warning.
+     */
+    protected final Pose bluePose(Points.Point p) {
+        if (p.x < Alliance.FIELD_SIZE / 2 + OWN_SIDE_MARGIN_IN) {
+            setupWarnings.add(String.format(Locale.US,
+                    "G402: BLUE pose (%.1f, %.1f) is within %.1f in of the opponent side",
+                    p.x, p.y, OWN_SIDE_MARGIN_IN));
+        }
+        return p.toPose();
     }
 
     /** Straight line, heading interpolated from start to end. */
@@ -276,6 +305,28 @@ public abstract class BaseAuto extends CommandOpMode {
                 .withTimeout(DEFAULT_PATH_TIMEOUT_MS);
     }
 
+    /**
+     * Waits until the robot is within SETTLE_POSITION_TOLERANCE_IN and SETTLE_HEADING_TOLERANCE_DEG
+     * of {@code target}, or SETTLE_TIMEOUT_MS. A follow() can finish while the robot is still
+     * turning (Pedro ends a path 100 ms after reaching its end point); the follower keeps holding
+     * the end pose meanwhile, so this lets it get there before, for example, the gate opens.
+     */
+    protected final Command settleAt(Pose target) {
+        return new WaitUntilCommand(() -> isAt(target)).withTimeout(SETTLE_TIMEOUT_MS);
+    }
+
+    private boolean isAt(Pose target) {
+        Pose p = follower.getPose();
+        if (p == null) {
+            return false;
+        }
+        double distance = Math.hypot(p.x() - target.x(), p.y() - target.y());
+        double headingDiff = p.heading() - target.heading();
+        double headingError = Math.abs(Math.atan2(Math.sin(headingDiff), Math.cos(headingDiff)));
+        return distance <= SETTLE_POSITION_TOLERANCE_IN
+                && headingError <= Math.toRadians(SETTLE_HEADING_TOLERANCE_DEG);
+    }
+
     /** Seconds since START. */
     protected final double matchSeconds() {
         return autoTimer.seconds();
@@ -310,23 +361,28 @@ public abstract class BaseAuto extends CommandOpMode {
     }
 
     /**
-     * Spins up, waits for speed (or SPIN_UP_TIMEOUT_MS), then opens the gate and feeds with
-     * the intake for {@code feedSeconds}. Intake, gate and flywheel are stopped when it
-     * ends, including when it is interrupted part-way.
+     * Same order as the TeleOp fire button: spins up the flywheel and runs the intake at full
+     * power with the gate closed; opens the gate only once the intake has had
+     * Intake.FIRE_SPINUP_SECONDS and the flywheel is at speed (or SPIN_UP_TIMEOUT_MS passed);
+     * then feeds for {@code feedSeconds}. When it ends, including when it is interrupted
+     * part-way, the gate closes, the flywheel stops and the intake goes back to normal power (it
+     * runs the whole AUTO).
      */
     protected final Command shoot(double feedSeconds) {
         return new SequentialCommandGroup(
                 spinUp(),
-                new WaitUntilCommand(shooter::isAtSpeed).withTimeout(SPIN_UP_TIMEOUT_MS),
-                new InstantCommand(() -> {
-                    gate.open();
-                    intake.runIntake();
-                }, gate, intake),
+                new InstantCommand(intake::runIntakeFull, intake),
+                // Both waits run at the same time; the gate opens when both are done.
+                new ParallelCommandGroup(
+                        new WaitCommand((long) (Intake.FIRE_SPINUP_SECONDS * 1000)),
+                        new WaitUntilCommand(shooter::isAtSpeed).withTimeout(SPIN_UP_TIMEOUT_MS)),
+                new InstantCommand(gate::open, gate),
                 new WaitCommand((long) (feedSeconds * 1000))) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
-                intake.stop();
+                // Back to normal intake power: the intake keeps running for the rest of AUTO.
+                intake.runIntake();
                 gate.close();
                 shooter.stop();
             }

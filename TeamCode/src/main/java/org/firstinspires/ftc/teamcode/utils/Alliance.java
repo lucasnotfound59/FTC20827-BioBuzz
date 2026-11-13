@@ -8,7 +8,7 @@ import com.pedropathing.math.Pose;
  * <p>Team field frame used for every Pedro pose (inches, radians, heading CCW-positive):
  * origin at the audience-side corner next to the RED alliance area, +x toward the BLUE
  * alliance wall (tile columns A to F), +y away from the audience (tile rows 1 to 6),
- * heading 0 faces +x. RED owns x &lt; 72 (columns A-C), BLUE owns x &gt; 72 (columns D-F).
+ * heading 0 faces +x. RED owns x &lt; 70.75 (columns A-C), BLUE owns x &gt; 70.75 (columns D-F).
  * This frame is a team convention, not an FTC or Limelight field frame: convert explicitly
  * before exchanging poses with either.
  */
@@ -17,8 +17,11 @@ public enum Alliance {
     RED(30, 37, 0.0),
     BLUE(38, 45, Math.PI);
 
-    /** Field edge length in inches (section 9.2). */
-    public static final double FIELD_SIZE = 144.0;
+    /**
+     * Field edge length in inches, as Pedro Pathing's field frame uses it: (0, 0) to
+     * (141.5, 141.5), centre (70.75, 70.75). Not the nominal 144 in of section 9.2.
+     */
+    public static final double FIELD_SIZE = 141.5;
     /** Each CELL carries one cluster of this many AprilTags with consecutive IDs. */
     public static final int TAGS_PER_CELL = 4;
     /** The HIVE structure holds four CELLS: two red, two blue. */

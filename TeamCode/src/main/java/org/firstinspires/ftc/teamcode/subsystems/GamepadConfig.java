@@ -4,7 +4,14 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.jetbrains.annotations.NotNull;
 
-/** Shared control mappings; reads the current gamepad state on every call. */
+/**
+ * Shared control mappings; reads the current gamepad state on every call.
+ *
+ * <p>Gamepad 1 (driver): driving, the splitter, the drive-to-shooting-position buttons and the
+ * odometry reset. Gamepad 2 (operator): shooter spin-up. Intake (LB), outtake (LT) and fire (RT:
+ * opens the gate and feeds with the intake while the shooter is at speed) work from either
+ * gamepad.
+ */
 public final class GamepadConfig {
     public static final double DRIVE_DEADBAND = 0.05;
     // Translation input multiplier for the left stick: 1.0 uses full power. The chassis is
@@ -12,71 +19,90 @@ public final class GamepadConfig {
     public static final double DRIVE_LIMIT = 1.0;
     // Turn input multiplier: 0.0 disables turning, 1.0 uses full turn power.
     public static final double TURN_LIMIT = 0.7;
-    private final Gamepad gamepad;
+    private final Gamepad gamepad1;
+    private final Gamepad gamepad2;
 
-    public GamepadConfig(@NotNull final Gamepad gamepad) {
-        this.gamepad = gamepad;
+    public GamepadConfig(@NotNull final Gamepad gamepad1, @NotNull final Gamepad gamepad2) {
+        this.gamepad1 = gamepad1;
+        this.gamepad2 = gamepad2;
+    }
+
+    // ---------- Gamepad 1: driver ----------
+
+    /**
+     * LB on either gamepad (hold): intake. If one
+     * gamepad holds intake and the other outtake, intake wins.
+     */
+    public boolean isIntakeHeld() {
+        return gamepad1.left_bumper || gamepad2.left_bumper;
+    }
+
+    /** LT on either gamepad (hold): outtake. */
+    public boolean isOuttakeHeld() {
+        return gamepad1.left_trigger_pressed || gamepad2.left_trigger_pressed;
     }
 
     public double getForward() {
-        return -gamepad.left_stick_y;
+        return -gamepad1.left_stick_y;
     }
 
     public double getStrafe() {
-        return gamepad.left_stick_x;
+        return gamepad1.left_stick_x;
     }
 
     public double getTurn() {
-        return gamepad.right_stick_x;
+        return gamepad1.right_stick_x;
     }
 
-    public boolean isIntakeHeld() {
-        return gamepad.left_bumper;
-    }
-
+    /** Gamepad 1 A: toggles the splitter down / up. */
     public boolean isSplitterHeld() {
-        return gamepad.a;
+        return gamepad1.a;
     }
 
-    public boolean isOuttakeHeld() {
-        return gamepad.left_trigger_pressed;
-    }
-
-    public boolean isShootHeld() {
-        return gamepad.right_bumper;
-    }
-
-    /** Hold to let auto-aim steer the chassis (Field-Centric only). */
-    public boolean isAimHeld() {
-        return gamepad.right_trigger_pressed;
-    }
-
-    /** BACK / SHARE: makes the robot's current facing the field-centric forward. */
-    public boolean isResetHeadingHeld() {
-        return gamepad.back;
+    /**
+     * Gamepad 1 D-pad down (press): resets the odometry pose to the alliance's reset pose
+     * (Field-Centric only).
+     */
+    public boolean isResetPoseHeld() {
+        return gamepad1.dpad_down;
     }
 
     /** B: drive to the first shooting position (Field-Centric only). */
     public boolean isDriveToShoot1Held() {
-        return gamepad.b;
+        return gamepad1.b;
     }
 
     /** X: drive to the second shooting position (Field-Centric only). */
     public boolean isDriveToShoot2Held() {
-        return gamepad.x;
+        return gamepad1.x;
     }
 
     /** INIT only: X (blue button) selects the BLUE alliance. */
     public boolean isBlueAllianceSelected() {
-        return gamepad.x;
+        return gamepad1.x;
     }
 
     /** INIT only: B (red button) selects the RED alliance. */
     public boolean isRedAllianceSelected() {
-        return gamepad.b;
+        return gamepad1.b;
     }
 
     public void rumble(int durationMs) {
-        gamepad.rumble(durationMs);
+        gamepad1.rumble(durationMs);
+    }
+
+    // ---------- Gamepad 2: operator ----------
+
+    /** Gamepad 2 RB (hold): spins the shooter up and keeps it at speed. */
+    public boolean isShootHeld() {
+        return gamepad2.right_bumper;
+    }
+
+    /**
+     * RT on either gamepad (hold): fire. Runs the intake at full power at once, then opens the gate
+     * once the intake has had Intake.FIRE_SPINUP_SECONDS and the shooter is at speed.
+     */
+    public boolean isFireHeld() {
+        return gamepad1.right_trigger_pressed || gamepad2.right_trigger_pressed;
     }
 }

@@ -10,22 +10,41 @@ import com.seattlesolvers.solverslib.command.Command;
 import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
 import com.seattlesolvers.solverslib.command.WaitCommand;
+import com.seattlesolvers.solverslib.command.WaitUntilCommand;
 
+import org.firstinspires.ftc.teamcode.autos.Points.RedFull;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 
 /**
- * Eleven named segments from Auto routines/RedFull.pp.json, in sequence. Coordinates and headings
- * are in the team RED field frame. The JSON contains no mechanism markers or waits, so
- * shooting and collection actions are attached to its named stops here. After collecting,
- * the intake runs slowly during the return path to retain the POLLEN until shooting.
+ * Red max routine. Field points live in {@link Points.RedFull} (team RED field frame):
+ * <ol>
+ * <li>START → SHOOT_1, wait until the robot is on the point, shoot the preload.</li>
+ * <li>SHOOT_1 → FLOWER_PREP_1 lowering the splitter on the way; FLOWER_PREP_1 → FLOWER_1,
+ *     collect.</li>
+ * <li>FLOWER_1 → SHOOT_2; wait until on the point, wait WAIT_BEFORE_SHOOT_2_SECONDS, shoot.</li>
+ * <li>SHOOT_2 → FLOWER_PREP_2 → FLOWER_2, collect.</li>
+ * <li>FLOWER_2 → SHOOT_2; wait until on the point, wait WAIT_BEFORE_SHOOT_2_SECONDS, shoot.</li>
+ * <li>SHOOT_2 → STOP_1 (PARK).</li>
+ * </ol>
+ * The splitter is lowered once and stays down for the rest of AUTO (it is never raised). The
+ * intake runs the whole AUTO (see BaseAuto). Everything before the park drive is cut off
+ * PARK_RESERVE_SECONDS before the end so PARK always gets its time.
  */
 @Configurable
 @Autonomous(name = "Red Full Auto", group = "Red", preselectTeleOp = "Field-Centric")
 public final class RedFullAuto extends BaseAuto {
-    public static double SHOOT_SECONDS = 2.0;
-    public static double FLOWER_SECONDS = 0.5;
-    public static double GARDEN_SECONDS = 0.5;
+    public static double SHOOT_SECONDS = 2;
+    // Time stopped at each FLOWER with the intake on (the splitter is already down by then).
+    public static double FLOWER_SECONDS = 2.0;
+    // Wait at shooting position 2, once the robot is on the point, before each shot there.
+    public static double WAIT_BEFORE_SHOOT_2_SECONDS = 1.0;
     public static long LONG_PATH_TIMEOUT_MS = 8000;
+    // Whatever is still running is cut off this long before the end of AUTO, so the drive to
+    // PARK always gets its time.
+    public static double PARK_RESERVE_SECONDS = 4.0;
+
+    // Like the TeleOp's splitterDeployed: whether the last splitter move started was down.
+    private boolean splitterDown;
 
     public RedFullAuto() {
         super(Alliance.RED);
@@ -33,118 +52,115 @@ public final class RedFullAuto extends BaseAuto {
 
     @Override
     protected Pose startPose() {
-        return redPose(52.63535635811941, 6.849936349051341, 90);
+        return redPose(RedFull.START);
     }
 
     @Override
     protected Command buildRoutine() {
+        splitterDown = false;
         Pose start1 = startPose();
-        Pose shoot1 = redPose(57.67473929268973, 15.784066336495535, -90);
-        Pose flowerPrep1 = redPose(27.75, 46.75, 180);
-        Pose flower1 = redPose(11.75, 46.75, 180);
-        Pose shoot2 = redPose(57.943067278180806, 126.61983598981584, 0);
-        Pose flowerPrep2 = redPose(46.838215419224326, 116.75, 90);
-        Pose flower2 = redPose(46.75, 129.75, 90);
-        Pose shoot2Return = redPose(58.05410766601562, 126.57603672572543, 90);
-        Pose gardenPrep = redPose(21.571446010044642, 5.746956961495535, 180);
-        Pose garden = redPose(7.217008318219866, 5.658124651227679, 180);
-        Pose shoot1Return = redPose(57.67, 15.78, -90);
-        Pose stop1 = redPose(9.43345642089844, 96.21348135811941, 0);
+        Pose shoot1 = redPose(RedFull.SHOOT_1);
+        Pose flowerPrep1 = redPose(RedFull.FLOWER_PREP_1);
+        Pose flower1 = redPose(RedFull.FLOWER_1);
+        Pose shoot2 = redPose(RedFull.SHOOT_2);
+        Pose flowerPrep2 = redPose(RedFull.FLOWER_PREP_2);
+        Pose flower2 = redPose(RedFull.FLOWER_2);
+        Pose park = redPose(RedFull.STOP_1);
 
-        Path start1ToShoot1 = line(start1, shoot1, Interpolator.constant(Math.toRadians(-90)));
+        Path start1ToShoot1 = line(start1, shoot1, Interpolator.constant(shoot1.heading()));
         Path shoot1ToFlowerPrep1 = line(shoot1, flowerPrep1,
-                Interpolator.linear(Math.toRadians(-90), Math.toRadians(180)));
+                Interpolator.linear(shoot1.heading(), Math.toRadians(180)));
         Path flowerPrep1ToFlower1 = line(flowerPrep1, flower1,
                 Interpolator.constant(Math.toRadians(180)));
         Path flower1ToShoot2 = Paths.curve(flower1,
-                redPose(39.1075342942361, 47.42045650357433, 0),
-                redPose(24.04969063199014, 117.33626336084433, 0), shoot2)
+                redPose(RedFull.FLOWER_1_TO_SHOOT_2_CTRL_A),
+                redPose(RedFull.FLOWER_1_TO_SHOOT_2_CTRL_B), shoot2)
                 .heading(Interpolator.piecewise()
                         .until(0.3,
                                 Interpolator.linear(Math.toRadians(180), Math.toRadians(90)))
-                        .until(1.0, Interpolator.constant(0)));
+                        .until(1.0, Interpolator.constant(shoot2.heading())));
         Path shoot2ToFlowerPrep2 = line(shoot2, flowerPrep2,
                 Interpolator.constant(Math.toRadians(90)));
         Path flowerPrep2ToFlower2 = line(flowerPrep2, flower2,
                 Interpolator.constant(Math.toRadians(90)));
-        Path flower2ToShoot2 = curve(flower2,
-                redPose(48.23847961425781, 107.75913565499441, 0), shoot2Return,
-                Interpolator.constant(Math.toRadians(90)));
-        Path shoot2ToGardenPrep = curve(shoot2Return,
-                redPose(25.469588630544294, 125.11931435878847, 0), gardenPrep,
-                Interpolator.piecewise()
-                        .until(0.7, Interpolator.constant(Math.toRadians(90)))
-                        .until(1.0, Interpolator.linear(Math.toRadians(90), Math.toRadians(180))));
-        Path gardenPrepToGarden = line(gardenPrep, garden,
-                Interpolator.constant(Math.toRadians(180)));
-        Path gardenToShoot1 = line(garden, shoot1Return,
-                Interpolator.piecewise()
-                        .until(0.5, Interpolator.constant(Math.toRadians(180)))
-                        .until(1.0,
-                                Interpolator.linear(Math.toRadians(180), Math.toRadians(-90))));
-        Path shoot1ToStop1 = curve(shoot1Return,
-                redPose(32.019441483516886, 20.86708279351004, 0), stop1,
-                Interpolator.piecewise()
-                        .until(0.7, Interpolator.constant(Math.toRadians(-90)))
-                        .until(1.0, Interpolator.constant(0)));
+        // Headings go from each point's heading to the next one's.
+        Path flower2ToShoot2 = line(flower2, shoot2);
+        Path shoot2ToPark = line(shoot2, park);
 
         return new SequentialCommandGroup(
-                spinUp(),
-                follow(start1ToShoot1),
-                shoot(SHOOT_SECONDS),
-                follow(shoot1ToFlowerPrep1),
-                collectAtFlower(flowerPrep1ToFlower1),
-                spinUp(),
-                follow(flower1ToShoot2, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS),
-                shoot(SHOOT_SECONDS),
-                follow(shoot2ToFlowerPrep2),
-                collectAtFlower(flowerPrep2ToFlower2),
-                spinUp(),
-                follow(flower2ToShoot2),
-                shoot(SHOOT_SECONDS),
-                follow(shoot2ToGardenPrep, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS),
-                collectAtGarden(gardenPrepToGarden),
-                spinUp(),
-                follow(gardenToShoot1, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS),
-                shoot(SHOOT_SECONDS),
-                follow(shoot1ToStop1, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS)) {
+                untilSecondsLeft(new SequentialCommandGroup(
+                        // 1. Preload at shooting position 1.
+                        spinUp(),
+                        follow(start1ToShoot1),
+                        settleAt(shoot1),
+                        shoot(SHOOT_SECONDS),
+                        // 2. FLOWER 1: splitter down on the way to the prep point.
+                        lowerSplitterWhileFollowing(shoot1ToFlowerPrep1, DEFAULT_PATH_TIMEOUT_MS),
+                        collectAtFlower(flowerPrep1ToFlower1),
+                        // 3. Shooting position 2 (the splitter stays down).
+                        spinUp(),
+                        follow(flower1ToShoot2, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS),
+                        settleAt(shoot2),
+                        new WaitCommand((long) (WAIT_BEFORE_SHOOT_2_SECONDS * 1000)),
+                        shoot(SHOOT_SECONDS),
+                        // 4. FLOWER 2 (the splitter is still down).
+                        follow(shoot2ToFlowerPrep2),
+                        collectAtFlower(flowerPrep2ToFlower2),
+                        // 5. Back to shooting position 2.
+                        spinUp(),
+                        follow(flower2ToShoot2),
+                        settleAt(shoot2),
+                        new WaitCommand((long) (WAIT_BEFORE_SHOOT_2_SECONDS * 1000)),
+                        shoot(SHOOT_SECONDS)), PARK_RESERVE_SECONDS),
+                // If the cutoff hit before a shoot() finished, the flywheel is still spinning.
+                new InstantCommand(shooter::stop, shooter),
+                // 6. PARK (the splitter stays down).
+                follow(shoot2ToPark, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS)) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
+                // The intake keeps running until AUTO ends (BaseAuto stops it).
                 shooter.stop();
-                intake.stop();
-                intake.stopSplitter();
             }
         };
     }
 
+    /**
+     * Waits at the prep point until the splitter is fully down, then drives the last stretch to
+     * a FLOWER and stays FLOWER_SECONDS. The intake is already running (it runs all AUTO).
+     *
+     * <p>There is no timeout on the splitter wait: if the splitter never lowers (for example
+     * Intake.SPLITTER_DEPLOY_SECONDS is 0), the robot stays at the prep point until the
+     * PARK_RESERVE_SECONDS cutoff and then parks, rather than driving into the FLOWER.
+     */
     private Command collectAtFlower(Path path) {
         return new SequentialCommandGroup(
+                // Never start the FLOWER approach before the splitter has finished going down.
+                new WaitUntilCommand(() -> splitterDown && !intake.isSplitterMoving()),
                 intakeOn(),
                 follow(path),
-                new InstantCommand(intake::deploySplitter, intake),
-                new WaitCommand((long) (FLOWER_SECONDS * 1000))) {
-            @Override
-            public void end(boolean interrupted) {
-                super.end(interrupted);
-                if (interrupted) intake.stop();
-                else intake.runIntakeSlow();
-                intake.stopSplitter();
-            }
-        };
+                new WaitCommand((long) (FLOWER_SECONDS * 1000)));
     }
 
-    private Command collectAtGarden(Path path) {
+    /** Starts lowering the splitter, then follows the path while it moves on its timer. */
+    private Command lowerSplitterWhileFollowing(Path path, long timeoutMs) {
         return new SequentialCommandGroup(
-                intakeOn(),
-                follow(path),
-                new WaitCommand((long) (GARDEN_SECONDS * 1000))) {
-            @Override
-            public void end(boolean interrupted) {
-                super.end(interrupted);
-                if (interrupted) intake.stop();
-                else intake.runIntakeSlow();
-            }
-        };
+                lowerSplitter(),
+                follow(path, PATH_SPEED_FRACTION, timeoutMs));
+    }
+
+    /**
+     * Lowers the splitter the same way the TeleOp's A press does: waits for any running splitter
+     * move to finish (where the TeleOp would ignore the press), then lowers it only if it is not
+     * already down; it only counts as down once the move started.
+     */
+    private Command lowerSplitter() {
+        return new SequentialCommandGroup(
+                new WaitUntilCommand(() -> !intake.isSplitterMoving()),
+                new InstantCommand(() -> {
+                    if (!splitterDown && intake.deploySplitter()) {
+                        splitterDown = true;
+                    }
+                }, intake));
     }
 }
