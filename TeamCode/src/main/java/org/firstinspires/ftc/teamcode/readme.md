@@ -32,7 +32,6 @@ Gamepad 1 (driver):
 | Right stick X | Turn (scaled by `GamepadConfig.TURN_LIMIT`) |
 | LB (hold) | Intake |
 | LT (hold) | Outtake |
-| RT (hold) | Fire, same as gamepad 2 |
 | A (press) | Splitter down / up |
 | B (press) | Pedro drives to shoot1 |
 | X (press) | Pedro drives to shoot2 |
@@ -45,9 +44,9 @@ Gamepad 2 (operator):
 | LB (hold) | Intake, same as gamepad 1 |
 | LT (hold) | Outtake, same as gamepad 1 |
 | RB (hold) | Shooter spin-up |
-| RT (hold) | Fire: runs the intake at full power, then opens the gate once the intake has spun up and the shooter is at speed |
+| RT (hold) | Run shooter; open gate and run shooting intake only while `canOpenGate()` is true |
 
-Intake, outtake and fire work from either gamepad; if one holds intake and the other outtake, intake wins. To shoot: gamepad 2 holds RB to spin up and either gamepad holds RT to fire. Fire runs the intake at full power at once (overriding intake/outtake), and opens the gate only after `Intake.FIRE_SPINUP_SECONDS` (the intake has no encoder, so this time stands in for reaching full speed) and while the shooter is at speed.
+Intake and outtake work from either gamepad; intake takes priority over outtake. Gamepad 2 RB spins up the shooter only. Gamepad 2 RT also runs the shooter and requests feeding: the gate opens and the intake runs at `Intake.SHOOT_INTAKE_POWER` (default 0.8) only while `canOpenGate()` is true. Otherwise the gate closes and feeding stops. Releasing RT closes the gate; RB may remain held to keep the shooter spinning.
 
 ## Field-Centric and Robot-Centric TeleOps
 
@@ -73,7 +72,7 @@ What the base does for the rules:
 - G402: a pose within `OWN_SIDE_MARGIN_IN` of the centre line shows a warning on the Driver Station.
 - G403: everything stops `END_GUARD_SECONDS` before the 30 s mark and again when the OpMode ends.
 - LEAVE 3, PARK 5, HIVE TIP 20: `untilSecondsLeft(command, seconds)` interrupts scoring so the final LEAVE / PARK move always gets its time.
-- `shoot(feedSeconds)` works like the TeleOp fire button: it spins up the flywheel and runs the intake at full power with the gate closed, opens the gate once the intake has had `Intake.FIRE_SPINUP_SECONDS` and the flywheel is at speed, feeds, and stops intake, gate and flywheel even when interrupted.
+- `shoot(feedSeconds)` uses the TeleOp gate/intake condition: it spins up with the gate closed and intake stopped, waits for `canOpenGate()`, then starts a `feedSeconds` shooting window. During that window, readiness is checked every loop; a speed drop closes the gate and stops feeding without extending the window. There is no forced-feed timeout. The parking reserve/end guard can interrupt waiting or feeding, and interruption closes the gate and stops intake and shooter.
 
 Before any path is driven, `pedro/Constants` still needs real values: the OctoQuad pod ports, directions and offsets are placeholders, and the Foresight block is Pedro's documentation sample. See the next section.
 

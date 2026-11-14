@@ -9,13 +9,13 @@ import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
 import com.seattlesolvers.solverslib.command.WaitCommand;
 
-import org.firstinspires.ftc.teamcode.autos.Points.RedLeast;
+import org.firstinspires.ftc.teamcode.autos.Points.Red;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 
 /**
- * Minimum RED routine: drive from {@link Points.RedLeast#START_2} to shooting position 2
- * ({@link Points.RedLeast#SHOOT_2}), shoot the 4 preloaded POLLEN, then PARK at
- * {@link Points.RedLeast#END} in the RED LOADING ZONE (LEAVE 3 + PARK 5).
+ * Minimum RED routine: drive from {@link Points.Red#START_2} to shooting position 2
+ * ({@link Points.Red#SHOOT_2}), shoot the 4 preloaded POLLEN, then PARK at
+ * {@link Points.Red#STOP_2} in the RED LOADING ZONE (LEAVE 3 + PARK 5).
  *
  * <p>For cooperation with the partner on the other side, WAIT_BEFORE_SHOOT_SECONDS holds at shoot 2
  * until the HIVE has tipped, and WAIT_BEFORE_PARK_SECONDS holds after shooting before parking.
@@ -43,14 +43,14 @@ public final class RedLeastAuto extends BaseAuto {
 
     @Override
     protected Pose startPose() {
-        return redPose(RedLeast.START_2);
+        return redPose(Red.START_2);
     }
 
     @Override
     protected Command buildRoutine() {
         Pose start = startPose();
-        Pose shoot2 = redPose(RedLeast.SHOOT_2);
-        Pose park = redPose(RedLeast.END);
+        Pose shoot2 = redPose(Red.SHOOT_2);
+        Pose park = redPose(Red.STOP_2);
 
         // Heading goes from START_2's to SHOOT_2's; both default to 90, so the robot only translates.
         Path startToShoot2 = line(start, shoot2);
@@ -59,6 +59,7 @@ public final class RedLeastAuto extends BaseAuto {
 
         return new SequentialCommandGroup(
                 untilSecondsLeft(new SequentialCommandGroup(
+                        intakeSlow(),
                         spinUp(),
                         follow(startToShoot2),
                         waitSeconds(WAIT_BEFORE_SHOOT_SECONDS),
@@ -66,12 +67,15 @@ public final class RedLeastAuto extends BaseAuto {
                         waitSeconds(WAIT_BEFORE_PARK_SECONDS)), PARK_RESERVE_SECONDS),
                 // If the cutoff hit before shoot() ran, the flywheel is still spinning.
                 new InstantCommand(shooter::stop, shooter),
+                intakeOff(),
+                retractSplitter(),
                 follow(shoot2ToPark)) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
-                // The intake keeps running until AUTO ends (BaseAuto stops it).
+                // Stop the intake even if the routine was interrupted during collection.
                 shooter.stop();
+                intake.stop();
             }
         };
     }

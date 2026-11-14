@@ -15,19 +15,18 @@ import org.jetbrains.annotations.NotNull;
 public final class Intake extends SubsystemBase {
     // Shared commanded power, limited to [-1, 1] by setPower(); tune in Panels.
     public static double INTAKE_POWER = 1.0;
+    // Shared shooting/feed power for every auto and TeleOp; collection uses INTAKE_POWER.
+    public static double SHOOT_INTAKE_POWER = 0.8;
     // Holds collected POLLEN in the intake while driving to a shooting position.
     public static double INTAKE_SLOW_POWER = 0.25;
     public static double OUTTAKE_POWER = -1.0;
-    // Fire button: the intake runs at full power this long before the gate may open. The intake
-    // has no encoder, so this time stands in for "the intake has reached full speed".
-    public static double FIRE_SPINUP_SECONDS = 0.3;
     // CR servo PWM commands: 0.5 is neutral; either side controls direction/speed.
     public static double SPLITTER_DEPLOY_POSITION = 1;
     public static double SPLITTER_RETRACT_POSITION = 0;
     public static double SPLITTER_STOP_POSITION = 0.5;
     // Measure each direction's travel time on the robot before use.
     public static double SPLITTER_DEPLOY_SECONDS = 0.75;
-    public static double SPLITTER_RETRACT_SECONDS = 0.775;
+    public static double SPLITTER_RETRACT_SECONDS = 0.76;
     private final Servo splitter;
     private long splitterDeadline;
     private final DcMotorEx intake;
@@ -49,9 +48,9 @@ public final class Intake extends SubsystemBase {
         setPower(INTAKE_POWER);
     }
 
-    /** Full power (1.0), regardless of INTAKE_POWER: used by the fire button to feed. */
-    public void runIntakeFull() {
-        setPower(1.0);
+    /** Shared feed power, independent of collection and loaded transport power. */
+    public void runIntakeForShooting() {
+        setPower(SHOOT_INTAKE_POWER);
     }
 
     public void runIntakeSlow() {

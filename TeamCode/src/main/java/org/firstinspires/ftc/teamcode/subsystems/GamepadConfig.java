@@ -8,9 +8,8 @@ import org.jetbrains.annotations.NotNull;
  * Shared control mappings; reads the current gamepad state on every call.
  *
  * <p>Gamepad 1 (driver): driving, the splitter, the drive-to-shooting-position buttons and the
- * odometry reset. Gamepad 2 (operator): shooter spin-up. Intake (LB), outtake (LT) and fire (RT:
- * opens the gate and feeds with the intake while the shooter is at speed) work from either
- * gamepad.
+ * odometry reset. Gamepad 2 (operator): LB collects; RB spins up the shooter; RT runs the
+ * shooter and feeds only when the gate can open. Intake (LB) and outtake (LT) work from either gamepad.
  */
 public final class GamepadConfig {
     public static final double DRIVE_DEADBAND = 0.05;
@@ -54,6 +53,11 @@ public final class GamepadConfig {
         return gamepad1.right_stick_x;
     }
 
+    /** Gamepad 1 D-pad up (press): toggle Field-Centric's emergency robot-centric mode. */
+    public boolean isDriveModeToggleHeld() {
+        return gamepad1.dpad_up;
+    }
+
     /** Gamepad 1 A: toggles the splitter down / up. */
     public boolean isSplitterHeld() {
         return gamepad1.a;
@@ -93,16 +97,13 @@ public final class GamepadConfig {
 
     // ---------- Gamepad 2: operator ----------
 
-    /** Gamepad 2 RB (hold): spins the shooter up and keeps it at speed. */
+    /** Gamepad 2 RB (hold): runs the shooter only. */
     public boolean isShootHeld() {
         return gamepad2.right_bumper;
     }
 
-    /**
-     * RT on either gamepad (hold): fire. Runs the intake at full power at once, then opens the gate
-     * once the intake has had Intake.FIRE_SPINUP_SECONDS and the shooter is at speed.
-     */
+    /** Gamepad 2 RT (hold): runs the shooter and feeds only when canOpenGate() is true. */
     public boolean isFireHeld() {
-        return gamepad1.right_trigger_pressed || gamepad2.right_trigger_pressed;
+        return gamepad2.right_trigger_pressed;
     }
 }

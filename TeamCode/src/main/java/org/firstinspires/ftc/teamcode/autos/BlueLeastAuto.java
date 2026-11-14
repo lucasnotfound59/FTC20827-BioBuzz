@@ -9,13 +9,13 @@ import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
 import com.seattlesolvers.solverslib.command.WaitCommand;
 
-import org.firstinspires.ftc.teamcode.autos.Points.BlueLeast;
+import org.firstinspires.ftc.teamcode.autos.Points.Blue;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 
 /**
  * Minimum BLUE routine, the RED Least Auto rotated to the BLUE side: drive from
- * {@link Points.BlueLeast#START_2} to shooting position 2 ({@link Points.BlueLeast#SHOOT_2}), shoot
- * the 4 preloaded POLLEN, then PARK at {@link Points.BlueLeast#STOP_2} in the BLUE LOADING ZONE
+ * {@link Points.Blue#START_2} to shooting position 2 ({@link Points.Blue#SHOOT_2}), shoot
+ * the 4 preloaded POLLEN, then PARK at {@link Points.Blue#STOP_2} in the BLUE LOADING ZONE
  * (LEAVE 3 + PARK 5).
  *
  * <p>For cooperation with the partner on the other side, WAIT_BEFORE_SHOOT_SECONDS holds at shoot 2
@@ -29,9 +29,9 @@ import org.firstinspires.ftc.teamcode.utils.Alliance;
 public final class BlueLeastAuto extends BaseAuto {
     // ---------- Cooperation timing: set these in Panels before INIT ----------
     // Seconds to wait at shooting position 2 before shooting, e.g. for the partner to tip the HIVE.
-    public static double WAIT_BEFORE_SHOOT_SECONDS = 1.0;
+    public static double WAIT_BEFORE_SHOOT_SECONDS = 1.5;
     // Seconds to wait after shooting before driving to PARK, e.g. to stay out of the partner's way.
-    public static double WAIT_BEFORE_PARK_SECONDS = 1.0;
+    public static double WAIT_BEFORE_PARK_SECONDS = 0;
 
     public static double SHOOT_SECONDS = 3.0;
     // Whatever is still running (waits included) is cut off this long before the end of AUTO,
@@ -44,22 +44,23 @@ public final class BlueLeastAuto extends BaseAuto {
 
     @Override
     protected Pose startPose() {
-        return bluePose(BlueLeast.START_2);
+        return bluePose(Blue.START_2);
     }
 
     @Override
     protected Command buildRoutine() {
         Pose start = startPose();
-        Pose shoot2 = bluePose(BlueLeast.SHOOT_2);
-        Pose park = bluePose(BlueLeast.STOP_2);
+        Pose shoot2 = bluePose(Blue.SHOOT_2);
+        Pose park = bluePose(Blue.STOP_2);
 
-        // Heading goes from START_2's to SHOOT_2's; both default to -90, so the robot only translates.
+        // START_2 defaults to -90 and SHOOT_2 to 270: the same physical orientation.
         Path startToShoot2 = line(start, shoot2);
         // Turns from the shooting heading to STOP_2's heading on the way in.
         Path shoot2ToPark = line(shoot2, park);
 
         return new SequentialCommandGroup(
                 untilSecondsLeft(new SequentialCommandGroup(
+                        intakeSlow(),
                         spinUp(),
                         follow(startToShoot2),
                         waitSeconds(WAIT_BEFORE_SHOOT_SECONDS),
@@ -67,12 +68,15 @@ public final class BlueLeastAuto extends BaseAuto {
                         waitSeconds(WAIT_BEFORE_PARK_SECONDS)), PARK_RESERVE_SECONDS),
                 // If the cutoff hit before shoot() ran, the flywheel is still spinning.
                 new InstantCommand(shooter::stop, shooter),
+                intakeOff(),
+                retractSplitter(),
                 follow(shoot2ToPark)) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
-                // The intake keeps running until AUTO ends (BaseAuto stops it).
+                // Stop the intake even if the routine was interrupted during collection.
                 shooter.stop();
+                intake.stop();
             }
         };
     }

@@ -6,6 +6,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.interpolator.Interpolator;
 
+import org.firstinspires.ftc.teamcode.autos.Points;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
@@ -38,11 +39,6 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
     public static double BLUE_RESET_Y_IN = 0.0;
     public static double BLUE_RESET_HEADING_DEG = 0.0;
 
-    // Shooting poses from RedFullAuto, in the RED field frame.
-    private static final Pose SHOOT1 = new Pose(58, 14,
-            Math.toRadians(-90));
-    private static final Pose SHOOT2 = new Pose(57.8, 125.2, Math.toRadians(90));
-
     protected Follower follower;
     private GamepadConfig controls;
     private Alliance alliance;
@@ -52,13 +48,27 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
     private AutoHandoff handoff;
 
     /**
-     * Sends the driver's input to the follower. forward is robot/field +x, lateral is
+     * Sends the driver's input to the follower. forward is robot/driver-frame +x, lateral is
      * left-positive and turn is CCW-positive (Pedro's conventions), already deadbanded and scaled.
      */
     protected abstract void driveManually(double forward, double lateral, double turn);
 
     /** One line for the INIT screen on what stick-forward means in this TeleOp. */
     protected abstract String stickFrameHint();
+
+    /** Returns true when manual drive should take over immediately after a mode change. */
+    protected boolean updateDriveMode(GamepadConfig controls) {
+        return false;
+    }
+
+    /** AUTO uses the alliance driver frame; standalone driving uses heading zero as forward. */
+    protected final double headingFromDriverForward() {
+        return follower.pose().heading() - (usingHandoff ? alliance.driverForwardHeading() : 0.0);
+    }
+
+    protected final boolean isUsingAutoHandoff() {
+        return usingHandoff;
+    }
 
     @Override
     protected final void initializeDrive(GamepadConfig controls) {
@@ -76,6 +86,18 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
 
     @Override
     protected final void updateDriveInitialization() {
+        if (!usingHandoff) {
+            if (controls.isBlueAllianceSelected() && !controls.isRedAllianceSelected()) {
+                START_ON_BLUE = true;
+            } else if (controls.isRedAllianceSelected() && !controls.isBlueAllianceSelected()) {
+                START_ON_BLUE = false;
+            }
+            alliance = START_ON_BLUE ? Alliance.BLUE : Alliance.RED;
+            telemetry.addLine("INIT alliance: X = BLUE, B = RED (or set START_ON_BLUE in Panels).");
+        }
+        // Selecting an alliance during INIT must not launch a shooting path at START.
+        shoot1WasHeld = controls.isDriveToShoot1Held();
+        shoot2WasHeld = controls.isDriveToShoot2Held();
         follower.localizer.update();
         telemetry.addData("Start pose source", usingHandoff ? "AUTO handoff" : "configured");
         telemetry.addData("Alliance", alliance);
@@ -86,11 +108,14 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
         }
         telemetry.addLine("D-pad down: reset odometry to the " + alliance + " reset pose.");
         telemetry.addLine("B: shoot1. X: shoot2. Move a drive stick to cancel.");
+        telemetry.addData("B shooting target", shootingTarget(true));
+        telemetry.addData("X shooting target", shootingTarget(false));
         telemetry.addLine(stickFrameHint());
     }
 
     @Override
     protected final void beforeDriveRun() {
+        boolean driveModeChanged = updateDriveMode(controls);
         double forward = applyDeadband(controls.getForward()) * GamepadConfig.DRIVE_LIMIT;
         // Pedro uses left-positive strafe and CCW-positive turn.
         double lateral = -applyDeadband(controls.getStrafe()) * GamepadConfig.DRIVE_LIMIT;
@@ -105,22 +130,32 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
         boolean shoot1Held = controls.isDriveToShoot1Held();
         boolean shoot2Held = controls.isDriveToShoot2Held();
 
-        if (!driverMoving) {
-            if (shoot1Held && !shoot1WasHeld) followTo(SHOOT1);
-            else if (shoot2Held && !shoot2WasHeld) followTo(SHOOT2);
+        if (!driverMoving && !driveModeChanged) {
+            // Read this alliance's shared points now so Panels tuning is reflected in each new path.
+            if (shoot1Held && !shoot1WasHeld) {
+                followTo(shootingTarget(true));
+            } else if (shoot2Held && !shoot2WasHeld) {
+                followTo(shootingTarget(false));
+            }
         }
         shoot1WasHeld = shoot1Held;
         shoot2WasHeld = shoot2Held;
 
-        if (driverMoving || follower.mode() != Follower.Mode.FOLLOW) {
+        if (driveModeChanged || driverMoving || follower.mode() != Follower.Mode.FOLLOW) {
             driveManually(forward, lateral, turn);
         }
         follower.update();
     }
 
-    private void followTo(Pose redTarget) {
+    private Pose shootingTarget(boolean first) {
+        if (alliance == Alliance.BLUE) {
+            return (first ? Points.Blue.SHOOT_1 : Points.Blue.SHOOT_2).toPose();
+        }
+        return (first ? Points.Red.SHOOT_1 : Points.Red.SHOOT_2).toPose();
+    }
+
+    private void followTo(Pose target) {
         Pose start = follower.pose();
-        Pose target = alliance == Alliance.RED ? redTarget : Alliance.RED.fromBlue(redTarget);
         follower.follow(Paths.line(start, target)
                 .heading(Interpolator.linear(start.heading(), target.heading())));
     }
@@ -160,6 +195,7 @@ public abstract class PedroDriveTeleOp extends BaseDriveTeleOp {
     protected final void addDriveTelemetry() {
         Pose pose = follower.pose();
         telemetry.addData("Pedro", follower.mode());
+        telemetry.addData("Drive frame", stickFrameHint());
         telemetry.addData("Alliance", alliance);
         Pose reset = allianceResetPose();
         telemetry.addData("D-pad down reset pose", String.format(Locale.US, "(%.1f, %.1f, %.0f deg)",

@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.teleops;
 import com.bylazar.telemetry.JoinedTelemetry;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import com.seattlesolvers.solverslib.command.CommandScheduler;
 
 import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
@@ -20,8 +19,6 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
     private GamepadConfig controls;
     private boolean splitterButtonWasHeld;
     private boolean splitterDeployed;
-    private final ElapsedTime fireTimer = new ElapsedTime();
-    private boolean fireWasHeld;
 
     @Override
     public final void initialize() {
@@ -33,6 +30,9 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         intake = new Intake(hardwareMap);
         gate = new Gate(hardwareMap);
         controls = new GamepadConfig(gamepad1, gamepad2);
+        // Ignore A carried over from starting the OpMode; require release, then a fresh press.
+        splitterButtonWasHeld = true;
+        splitterDeployed = false;
         initializeDrive(controls);
     }
 
@@ -68,36 +68,34 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         }
         splitterButtonWasHeld = splitterHeld;
 
-        if (controls.isShootHeld()) {
+        boolean fireHeld = controls.isFireHeld();
+        if (controls.isShootHeld() || fireHeld) {
             shooter.shoot();
         } else {
             shooter.stop();
         }
 
-        // Fire: the intake goes to full power at once; the gate opens only after the intake has had
-        // FIRE_SPINUP_SECONDS to reach full speed and while the shooter is at speed.
-        boolean fireHeld = controls.isFireHeld();
-        if (fireHeld && !fireWasHeld) {
-            fireTimer.reset();
+        // Feed only while RT is held and the shooter permits the gate to open.
+        boolean gateOpen = fireHeld && shooter.canOpenGate();
+
+        if (gateOpen) {
+            gate.open();
+        } else {
+            gate.close();
         }
-        fireWasHeld = fireHeld;
-        boolean intakeAtFullSpeed = fireHeld && fireTimer.seconds() >= Intake.FIRE_SPINUP_SECONDS;
-        boolean gateOpen = intakeAtFullSpeed && shooter.canOpenGate();
 
         if (fireHeld) {
-            intake.runIntakeFull();
+            if (gateOpen) {
+                intake.runIntakeForShooting();
+            } else {
+                intake.stop();
+            }
         } else if (controls.isIntakeHeld()) {
             intake.runIntake();
         } else if (controls.isOuttakeHeld()) {
             intake.runOuttake();
         } else {
             intake.stop();
-        }
-
-        if (gateOpen) {
-            gate.open();
-        } else {
-            gate.close();
         }
 
         addDriveTelemetry();
@@ -112,7 +110,6 @@ public abstract class BaseDriveTeleOp extends CommandOpMode {
         telemetry.addData("Splitter rotation command", splitterDeployed ? "deploy" : "retract / initially stopped");
         telemetry.addData("Splitter timer active", intake.isSplitterMoving());
         telemetry.addData("Fire", !fireHeld ? "-"
-                : !intakeAtFullSpeed ? "intake spinning up"
                 : !gateOpen ? "waiting for shooter speed" : "gate open, feeding");
         telemetry.addData("Gate Position Command", gate.getPosition());
         telemetry.update();

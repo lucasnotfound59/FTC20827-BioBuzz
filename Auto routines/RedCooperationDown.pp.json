@@ -46,6 +46,144 @@
       }
     },
     {
+      "id": "line-mwexon24-9v19cs",
+      "color": "#e15759",
+      "name": "Shoot1ToGardenPrep",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 22.544525465030652,
+        "y": 5.79979558089651
+      },
+      "controlPoints": [
+        {
+          "x": 55.464719330997355,
+          "y": 24.795270819566625
+        }
+      ],
+      "heading": {
+        "type": "piecewise",
+        "reverse": true,
+        "degrees": 0,
+        "startDeg": -90,
+        "endDeg": 180,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 0.5,
+              "interpolationType": "linear",
+              "reversed": false,
+              "continueFromPrevious": false,
+              "parameters": {
+                "startDeg": -90,
+                "endDeg": 180
+              }
+            },
+            {
+              "startProgress": 0.5,
+              "endProgress": 1,
+              "interpolationType": "constant",
+              "reversed": false,
+              "continueFromPrevious": true,
+              "parameters": {
+                "degrees": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-mweyhd19-7scjhk",
+      "color": "#e15759",
+      "name": "GardenPrepToGarden",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 7.451476536485736,
+        "y": 5.523845563660252
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "constant",
+        "reverse": true,
+        "degrees": 180,
+        "startDeg": 0,
+        "endDeg": 0,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-mweyiunc-h8iq16",
+      "color": "#76b7b2",
+      "name": "GardenToShoot1",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 1000,
+      "waitBeforeName": "",
+      "waitAfterName": "Wait after Garden return before shooting",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 56.68077501474347,
+        "y": 15.871311906465696
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "piecewise",
+        "reverse": true,
+        "degrees": 180,
+        "startDeg": 180,
+        "endDeg": -90,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 0.5,
+              "interpolationType": "constant",
+              "reversed": false,
+              "continueFromPrevious": false,
+              "parameters": {
+                "degrees": 180
+              }
+            },
+            {
+              "startProgress": 0.5,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "continueFromPrevious": true,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": -90
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "line-mwexcjgv-vey90n",
       "color": "#4e79a7",
       "name": "Shoot1ToFlowerPrep1",
@@ -150,144 +288,6 @@
               "parameters": {
                 "startDeg": 0,
                 "endDeg": 0
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mwexon24-9v19cs",
-      "color": "#e15759",
-      "name": "Shoot1ToGardenPrep",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 22.544525465030652,
-        "y": 5.79979558089651
-      },
-      "controlPoints": [
-        {
-          "x": 55.464719330997355,
-          "y": 24.795270819566625
-        }
-      ],
-      "heading": {
-        "type": "piecewise",
-        "reverse": true,
-        "degrees": 0,
-        "startDeg": -90,
-        "endDeg": 180,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 0.5,
-              "interpolationType": "linear",
-              "reversed": false,
-              "continueFromPrevious": false,
-              "parameters": {
-                "startDeg": -90,
-                "endDeg": 180
-              }
-            },
-            {
-              "startProgress": 0.5,
-              "endProgress": 1,
-              "interpolationType": "constant",
-              "reversed": false,
-              "continueFromPrevious": true,
-              "parameters": {
-                "degrees": 0
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mweyhd19-7scjhk",
-      "color": "#e15759",
-      "name": "GardenPrepToGarden",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 7.451476536485736,
-        "y": 5.523845563660252
-      },
-      "controlPoints": [],
-      "heading": {
-        "type": "constant",
-        "reverse": true,
-        "degrees": 180,
-        "startDeg": 0,
-        "endDeg": 0,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 1,
-              "interpolationType": "linear",
-              "reversed": false,
-              "parameters": {
-                "startDeg": 0,
-                "endDeg": 0
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "line-mweyiunc-h8iq16",
-      "color": "#76b7b2",
-      "name": "GardenToShoot1",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": "",
-      "kind": "atomic",
-      "endPoint": {
-        "x": 56.68077501474347,
-        "y": 15.871311906465696
-      },
-      "controlPoints": [],
-      "heading": {
-        "type": "piecewise",
-        "reverse": true,
-        "degrees": 180,
-        "startDeg": 180,
-        "endDeg": -90,
-        "piecewiseHeading": {
-          "segments": [
-            {
-              "startProgress": 0,
-              "endProgress": 0.5,
-              "interpolationType": "constant",
-              "reversed": false,
-              "continueFromPrevious": false,
-              "parameters": {
-                "degrees": 180
-              }
-            },
-            {
-              "startProgress": 0.5,
-              "endProgress": 1,
-              "interpolationType": "linear",
-              "reversed": false,
-              "continueFromPrevious": true,
-              "parameters": {
-                "startDeg": 0,
-                "endDeg": -90
               }
             }
           ]
@@ -517,18 +517,6 @@
     },
     {
       "kind": "path",
-      "lineId": "line-mwexcjgv-vey90n"
-    },
-    {
-      "kind": "path",
-      "lineId": "line-mwexekgn-xyjr9x"
-    },
-    {
-      "kind": "path",
-      "lineId": "line-mwexnatw-bcl6xv"
-    },
-    {
-      "kind": "path",
       "lineId": "line-mwexon24-9v19cs"
     },
     {
@@ -538,6 +526,18 @@
     {
       "kind": "path",
       "lineId": "line-mweyiunc-h8iq16"
+    },
+    {
+      "kind": "path",
+      "lineId": "line-mwexcjgv-vey90n"
+    },
+    {
+      "kind": "path",
+      "lineId": "line-mwexekgn-xyjr9x"
+    },
+    {
+      "kind": "path",
+      "lineId": "line-mwexnatw-bcl6xv"
     },
     {
       "kind": "path",

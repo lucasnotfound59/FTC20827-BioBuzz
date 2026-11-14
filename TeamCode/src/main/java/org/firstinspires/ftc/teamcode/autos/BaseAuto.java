@@ -13,9 +13,8 @@ import com.seattlesolvers.solverslib.command.Command;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
 import com.seattlesolvers.solverslib.command.CommandScheduler;
 import com.seattlesolvers.solverslib.command.InstantCommand;
-import com.seattlesolvers.solverslib.command.ParallelCommandGroup;
+import com.seattlesolvers.solverslib.command.RunCommand;
 import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
-import com.seattlesolvers.solverslib.command.WaitCommand;
 import com.seattlesolvers.solverslib.command.WaitUntilCommand;
 import com.seattlesolvers.solverslib.pedroCommand.FollowPathCommand;
 import com.seattlesolvers.solverslib.pedroCommand.TurnToCommand;
@@ -64,8 +63,6 @@ public abstract class BaseAuto extends CommandOpMode {
     public static double PATH_SPEED_FRACTION = 0.7;
     // A path or turn that has not finished by then is abandoned and the robot holds its pose.
     public static long DEFAULT_PATH_TIMEOUT_MS = 5000;
-    // Feed anyway if the flywheel has not reached speed within this time.
-    public static long SPIN_UP_TIMEOUT_MS = 2000;
     // Stop everything this long before the end of AUTO so nothing is still powered at 30 s.
     public static double END_GUARD_SECONDS = 0.2;
     // Warn about poses whose robot centre is closer than this to the centre line (inches);
@@ -140,8 +137,8 @@ public abstract class BaseAuto extends CommandOpMode {
         // Discard whatever the odometry picked up while the robot was being placed.
         follower.setPose(startFieldPose);
         autoTimer.reset();
-        // The intake runs the whole AUTO; only the end guard / OpMode end stops it.
-        intake.runIntake();
+        // Routines explicitly select collection, loaded transport, or shooting power.
+        intake.stop();
         schedule(routine);
     }
 
@@ -157,6 +154,7 @@ public abstract class BaseAuto extends CommandOpMode {
         telemetry.addData("Alliance", alliance);
         telemetry.addData("AUTO time left (s)", secondsLeft());
         telemetry.addData("Routine running", routine.isScheduled());
+        telemetry.addData("Splitter timer active", intake.isSplitterMoving());
         addPoseTelemetry();
         telemetry.addData("Follower mode", follower.getMode());
         telemetry.addData("Path completion", follower.getCompletion());
@@ -352,8 +350,22 @@ public abstract class BaseAuto extends CommandOpMode {
         return new InstantCommand(shooter::shoot, shooter);
     }
 
+    /** Starts timed retraction without waiting, so it can run during the final path. */
+    protected final Command retractSplitter() {
+        return new InstantCommand(() -> {
+            // A park cutoff may interrupt deployment; allow retraction to replace it.
+            intake.stopSplitter();
+            intake.retractSplitter();
+        }, intake);
+    }
+
     protected final Command intakeOn() {
         return new InstantCommand(intake::runIntake, intake);
+    }
+
+    /** Holds loaded pollen while travelling or waiting, without feeding at full power. */
+    protected final Command intakeSlow() {
+        return new InstantCommand(intake::runIntakeSlow, intake);
     }
 
     protected final Command intakeOff() {
@@ -361,28 +373,34 @@ public abstract class BaseAuto extends CommandOpMode {
     }
 
     /**
-     * Same order as the TeleOp fire button: spins up the flywheel and runs the intake at full
-     * power with the gate closed; opens the gate only once the intake has had
-     * Intake.FIRE_SPINUP_SECONDS and the flywheel is at speed (or SPIN_UP_TIMEOUT_MS passed);
-     * then feeds for {@code feedSeconds}. When it ends, including when it is interrupted
-     * part-way, the gate closes, the flywheel stops and the intake goes back to normal power (it
-     * runs the whole AUTO).
+     * Matches TeleOp RT: spins up with the gate closed and intake stopped, then feeds only
+     * while canOpenGate() is true. The shooting window lasts feedSeconds after first readiness;
+     * speed dips close the gate and stop the intake without extending that window. If readiness
+     * never arrives, the routine's parking reserve/end guard interrupts the wait. Completion or
+     * interruption stops the intake and flywheel and closes the gate.
      */
     protected final Command shoot(double feedSeconds) {
         return new SequentialCommandGroup(
                 spinUp(),
-                new InstantCommand(intake::runIntakeFull, intake),
-                // Both waits run at the same time; the gate opens when both are done.
-                new ParallelCommandGroup(
-                        new WaitCommand((long) (Intake.FIRE_SPINUP_SECONDS * 1000)),
-                        new WaitUntilCommand(shooter::isAtSpeed).withTimeout(SPIN_UP_TIMEOUT_MS)),
-                new InstantCommand(gate::open, gate),
-                new WaitCommand((long) (feedSeconds * 1000))) {
+                new InstantCommand(() -> {
+                    gate.close();
+                    intake.stop();
+                }, gate, intake),
+                new WaitUntilCommand(shooter::canOpenGate),
+                new RunCommand(() -> {
+                    if (shooter.canOpenGate()) {
+                        gate.open();
+                        intake.runIntakeForShooting();
+                    } else {
+                        gate.close();
+                        intake.stop();
+                    }
+                }, gate, intake).withTimeout((long) (Math.max(0.0, feedSeconds) * 1000))) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
-                // Back to normal intake power: the intake keeps running for the rest of AUTO.
-                intake.runIntake();
+                // Collection and loaded transport commands choose the next intake power.
+                intake.stop();
                 gate.close();
                 shooter.stop();
             }

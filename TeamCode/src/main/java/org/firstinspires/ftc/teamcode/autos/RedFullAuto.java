@@ -12,11 +12,11 @@ import com.seattlesolvers.solverslib.command.SequentialCommandGroup;
 import com.seattlesolvers.solverslib.command.WaitCommand;
 import com.seattlesolvers.solverslib.command.WaitUntilCommand;
 
-import org.firstinspires.ftc.teamcode.autos.Points.RedFull;
+import org.firstinspires.ftc.teamcode.autos.Points.Red;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 
 /**
- * Red max routine. Field points live in {@link Points.RedFull} (team RED field frame):
+ * Red max routine. Field points live in {@link Points.Red} (team RED field frame):
  * <ol>
  * <li>START → SHOOT_1, wait until the robot is on the point, shoot the preload.</li>
  * <li>SHOOT_1 → FLOWER_PREP_1 lowering the splitter on the way; FLOWER_PREP_1 → FLOWER_1,
@@ -26,8 +26,8 @@ import org.firstinspires.ftc.teamcode.utils.Alliance;
  * <li>FLOWER_2 → SHOOT_2; wait until on the point, wait WAIT_BEFORE_SHOOT_2_SECONDS, shoot.</li>
  * <li>SHOOT_2 → STOP_1 (PARK).</li>
  * </ol>
- * The splitter is lowered once and stays down for the rest of AUTO (it is never raised). The
- * intake runs the whole AUTO (see BaseAuto). Everything before the park drive is cut off
+ * The splitter stays down through collection and retracts when the final park path starts.
+ * The intake runs during collection and shooting, and slowly while carrying pollen. Everything before the park drive is cut off
  * PARK_RESERVE_SECONDS before the end so PARK always gets its time.
  */
 @Configurable
@@ -52,20 +52,20 @@ public final class RedFullAuto extends BaseAuto {
 
     @Override
     protected Pose startPose() {
-        return redPose(RedFull.START);
+        return redPose(Red.START);
     }
 
     @Override
     protected Command buildRoutine() {
         splitterDown = false;
         Pose start1 = startPose();
-        Pose shoot1 = redPose(RedFull.SHOOT_1);
-        Pose flowerPrep1 = redPose(RedFull.FLOWER_PREP_1);
-        Pose flower1 = redPose(RedFull.FLOWER_1);
-        Pose shoot2 = redPose(RedFull.SHOOT_2);
-        Pose flowerPrep2 = redPose(RedFull.FLOWER_PREP_2);
-        Pose flower2 = redPose(RedFull.FLOWER_2);
-        Pose park = redPose(RedFull.STOP_1);
+        Pose shoot1 = redPose(Red.SHOOT_1);
+        Pose flowerPrep1 = redPose(Red.FLOWER_PREP_1);
+        Pose flower1 = redPose(Red.FLOWER_1);
+        Pose shoot2 = redPose(Red.SHOOT_2);
+        Pose flowerPrep2 = redPose(Red.FLOWER_PREP_2);
+        Pose flower2 = redPose(Red.FLOWER_2);
+        Pose park = redPose(Red.STOP_1);
 
         Path start1ToShoot1 = line(start1, shoot1, Interpolator.constant(shoot1.heading()));
         Path shoot1ToFlowerPrep1 = line(shoot1, flowerPrep1,
@@ -73,8 +73,8 @@ public final class RedFullAuto extends BaseAuto {
         Path flowerPrep1ToFlower1 = line(flowerPrep1, flower1,
                 Interpolator.constant(Math.toRadians(180)));
         Path flower1ToShoot2 = Paths.curve(flower1,
-                redPose(RedFull.FLOWER_1_TO_SHOOT_2_CTRL_A),
-                redPose(RedFull.FLOWER_1_TO_SHOOT_2_CTRL_B), shoot2)
+                redPose(Red.FLOWER_1_TO_SHOOT_2_CTRL_A),
+                redPose(Red.FLOWER_1_TO_SHOOT_2_CTRL_B), shoot2)
                 .heading(Interpolator.piecewise()
                         .until(0.3,
                                 Interpolator.linear(Math.toRadians(180), Math.toRadians(90)))
@@ -89,6 +89,7 @@ public final class RedFullAuto extends BaseAuto {
 
         return new SequentialCommandGroup(
                 untilSecondsLeft(new SequentialCommandGroup(
+                        intakeSlow(),
                         // 1. Preload at shooting position 1.
                         spinUp(),
                         follow(start1ToShoot1),
@@ -114,20 +115,23 @@ public final class RedFullAuto extends BaseAuto {
                         shoot(SHOOT_SECONDS)), PARK_RESERVE_SECONDS),
                 // If the cutoff hit before a shoot() finished, the flywheel is still spinning.
                 new InstantCommand(shooter::stop, shooter),
-                // 6. PARK (the splitter stays down).
+                intakeOff(),
+                // 6. Retract while driving to PARK.
+                retractSplitter(),
                 follow(shoot2ToPark, PATH_SPEED_FRACTION, LONG_PATH_TIMEOUT_MS)) {
             @Override
             public void end(boolean interrupted) {
                 super.end(interrupted);
-                // The intake keeps running until AUTO ends (BaseAuto stops it).
+                // Stop the intake even if the routine was interrupted during collection.
                 shooter.stop();
+                intake.stop();
             }
         };
     }
 
     /**
      * Waits at the prep point until the splitter is fully down, then drives the last stretch to
-     * a FLOWER and stays FLOWER_SECONDS. The intake is already running (it runs all AUTO).
+     * a FLOWER and stays FLOWER_SECONDS with collection power, then slows for loaded transport.
      *
      * <p>There is no timeout on the splitter wait: if the splitter never lowers (for example
      * Intake.SPLITTER_DEPLOY_SECONDS is 0), the robot stays at the prep point until the
@@ -139,7 +143,8 @@ public final class RedFullAuto extends BaseAuto {
                 new WaitUntilCommand(() -> splitterDown && !intake.isSplitterMoving()),
                 intakeOn(),
                 follow(path),
-                new WaitCommand((long) (FLOWER_SECONDS * 1000)));
+                new WaitCommand((long) (FLOWER_SECONDS * 1000)),
+                intakeSlow());
     }
 
     /** Starts lowering the splitter, then follows the path while it moves on its timer. */

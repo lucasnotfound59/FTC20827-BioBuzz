@@ -3,20 +3,46 @@ package org.firstinspires.ftc.teamcode.teleops;
 import com.pedropathing.follower.ManualDrive;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.subsystems.GamepadConfig;
+
 /**
- * Field-centric manual drive: stick-forward always moves along field +x, whatever the robot's
- * facing. Pose, B/X paths, AUTO handoff and D-pad reset come from {@link PedroDriveTeleOp}.
+ * Field-centric manual drive: with AUTO handoff, stick-forward moves away from the alliance's
+ * drivers (+x RED, -x BLUE). Without handoff, heading zero is forward for either alliance.
+ * Pose, B/X paths, AUTO handoff and D-pad reset come from {@link PedroDriveTeleOp}.
  */
 @TeleOp(name = "Field-Centric")
 public final class FieldCentricDrive extends PedroDriveTeleOp {
+    private boolean robotCentric;
+    private boolean driveModeWasHeld;
+
+    @Override
+    protected boolean updateDriveMode(GamepadConfig controls) {
+        boolean held = controls.isDriveModeToggleHeld();
+        boolean changed = held && !driveModeWasHeld;
+        driveModeWasHeld = held;
+        if (changed) {
+            robotCentric = !robotCentric;
+            controls.rumble(200);
+        }
+        return changed;
+    }
+
     @Override
     protected void driveManually(double forward, double lateral, double turn) {
-        follower.manual(ManualDrive.fieldCentric(forward, lateral, turn,
-                follower.pose().heading()));
+        if (robotCentric) {
+            follower.manual(forward, lateral, turn);
+        } else {
+            follower.manual(ManualDrive.fieldCentric(forward, lateral, turn,
+                    headingFromDriverForward()));
+        }
     }
 
     @Override
     protected String stickFrameHint() {
-        return "Stick-forward follows field +x; Auto and TeleOp share the same pose frame.";
+        return (robotCentric ? "ROBOT: forward follows the robot."
+                : isUsingAutoHandoff()
+                        ? "FIELD: forward away from drivers (+x RED, -x BLUE)."
+                        : "FIELD: standalone, heading zero is forward (+x).")
+                + " D-pad up: toggle drive frame and cancel the current path.";
     }
 }
