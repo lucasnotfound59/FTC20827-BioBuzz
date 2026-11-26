@@ -67,7 +67,15 @@ public enum Alliance {
         return tagId >= firstTagId && tagId <= lastTagId;
     }
 
-    /** Index 0..3 of the CELL a tag belongs to, or -1 if it is not a CELL tag. */
+    /**
+     * Index 0..3 of the CELL a tag belongs to, or -1 if it is not a CELL tag.
+     *
+     * <p>Cell order follows TU06 9.9, which lists the clusters in field order: 30-33 is the red
+     * CELL on the side opposite the audience (judge side), 34-37 the red CELL on the audience
+     * side, 38-41 the blue CELL on the audience side and 42-45 the blue CELL on the judge side.
+     * The layout is mirrored between alliances, so cells 0 and 3 are judge side, 1 and 2 are
+     * audience side; a tag's parity alone does not give its side.
+     */
     public static int cellOfTag(int tagId) {
         int cell = Math.floorDiv(tagId - FIRST_CELL_TAG_ID, TAGS_PER_CELL);
         return cell >= 0 && cell < CELL_COUNT ? cell : -1;
