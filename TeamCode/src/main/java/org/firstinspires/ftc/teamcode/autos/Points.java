@@ -76,18 +76,18 @@ public final class Points {
         /** RED counterpart of the delayed BLUE parking start. */
         public static Point START_OUTSIDE_END_ZONE = new Point(64.4134, 134.2953, 270);
         /** Starting location for the Least routine. */
-        public static Point START_2 = new Point(63.46, 132.8, 90);
-        // Shooting headings put the rear-facing turret toward the HIVE.
-        public static Point SHOOT_1 = new Point(62.9173, 16.185, 270);
+        public static Point START_2 = new Point(63.46, 132.8, 270);
+        // Shooting headings put the front-facing turret toward the HIVE.
+        public static Point SHOOT_1 = new Point(62.9173, 16.185, 90);
         public static Point FLOWER_PREP_1 = new Point(26.0669, 48.2323, 180);
         public static Point FLOWER_1 = new Point(15.752, 49.0591, 180);
-        public static Point SHOOT_2 = new Point(60.2795, 127.3661, 90);
+        public static Point SHOOT_2 = new Point(60.2795, 127.3661, 270);
         public static Point FLOWER_PREP_2 = new Point(49.5709, 119.4134, 90);
         public static Point FLOWER_2 = new Point(49.3346, 126.5394, 90);
-        public static Point SHOOT_2_RETURN = new Point(61.8937, 127.3268, 90);
+        public static Point SHOOT_2_RETURN = new Point(61.8937, 127.3268, 270);
         public static Point GARDEN_PREP = new Point(33.0748, 9.2559, 180);
         public static Point GARDEN = new Point(10.9488, 9.7283, 180);
-        public static Point SHOOT_1_RETURN = new Point(61.6181, 17.248, 270);
+        public static Point SHOOT_1_RETURN = new Point(61.6181, 17.248, 90);
         public static Point STOP_1 = new Point(9.5315, 105.1614, 0);
         /** Parking location inside the RED LOADING ZONE. */
         public static Point STOP_2 = new Point(11, 118.66, 0);
@@ -115,7 +115,9 @@ public final class Points {
         // Moved down-left from (32.02, 20.87) so the robot clears the HIVE by ~5 in.
         public static Point SHOOT_1_TO_STOP_1_CTRL = new Point(28.0, 12.0, 0);
         /** shoot1 → flowerPrep1: bows the path away from the HIVE corner (~5 in clearance). */
-        public static Point SHOOT_1_TO_FLOWER_PREP_1_CTRL = new Point(32.5, 36.0, 0);
+        public static Point SHOOT_1_TO_FLOWER_PREP_1_CTRL = new Point(27.5, 34.5, 0);
+        /** flower1 → shoot1: keeps the turning robot ~5 in off the HIVE corner. */
+        public static Point FLOWER_1_TO_SHOOT_1_CTRL = new Point(46.5, 26.0, 0);
     }
 
     /** Derived BLUE points. Edit Red in Panels; every read uses its latest values. */
@@ -148,5 +150,6 @@ public final class Points {
         public static final PoseSource SHOOT_2_TO_GARDEN_PREP_CTRL = blue(() -> Red.SHOOT_2_TO_GARDEN_PREP_CTRL);
         public static final PoseSource SHOOT_1_TO_STOP_1_CTRL = blue(() -> Red.SHOOT_1_TO_STOP_1_CTRL);
         public static final PoseSource SHOOT_1_TO_FLOWER_PREP_1_CTRL = blue(() -> Red.SHOOT_1_TO_FLOWER_PREP_1_CTRL);
+        public static final PoseSource FLOWER_1_TO_SHOOT_1_CTRL = blue(() -> Red.FLOWER_1_TO_SHOOT_1_CTRL);
     }
 }

@@ -65,7 +65,8 @@ public final class RedCooperationDownAuto extends BaseAuto {
                 Interpolator.linear(shoot1.heading(), flowerPrep1.heading()));
         Path flowerPrep1ToFlower1 = line(flowerPrep1, flower1,
                 Interpolator.constant(flower1.heading()));
-        Path flower1ToShoot1 = line(flower1, shoot1);
+        Path flower1ToShoot1 = curve(flower1, redPose(Red.FLOWER_1_TO_SHOOT_1_CTRL), shoot1,
+                Interpolator.linear(flower1.heading(), shoot1.heading()));
         Path shoot1ToGardenPrep = curve(shoot1,
                 redPose(Red.SHOOT_1_TO_GARDEN_PREP_CTRL), gardenPrep,
                 Interpolator.piecewise()
